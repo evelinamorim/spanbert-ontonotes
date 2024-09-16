@@ -230,9 +230,7 @@ class SpanBERTCorefModel(nn.Module):
         top_span_mention_scores = torch.gather(candidate_mention_scores, 0, top_span_indices.long())  # [k]
 
         genre_embeddings = nn.Parameter(torch.randn(len(self.config.GENRES), self.config.FEATURE_SIZE) * 0.02)
-        genre = torch.tensor(genre, dtype=torch.long)
-        genre_emb = torch.gather(genre_embeddings, 0, genre.unsqueeze(0)).squeeze(0)  # [emb]
-
+        genre_emb = genre_embeddings[genre]
         return sequence_output
 
 
