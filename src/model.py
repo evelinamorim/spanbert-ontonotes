@@ -136,7 +136,6 @@ class SpanBERTCorefModel(nn.Module):
         if self.config.USE_FEATURES:
             span_width_index = span_width - 1  # [k]
             span_embedding_module = SpanEmbeddingModule(self.config)
-            # TODO: returnin NOne
             span_width_emb = span_embedding_module(span_width_index)
             span_emb_list.append(span_width_emb)
 
