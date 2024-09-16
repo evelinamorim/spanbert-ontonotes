@@ -32,10 +32,15 @@ class SpanBERTCorefModel(nn.Module):
 
     def __prepare_spans_candidates(self, sentence_map, num_words):
 
+        device = sentence_map.device
+
         flattened_sentence_indices = sentence_map
         candidate_starts = torch.arange(num_words).unsqueeze(1).repeat(1, self.max_span_length)  # [num_words, max_span_width]
         candidate_ends = candidate_starts + torch.arange(self.max_span_length).unsqueeze(
             0)  # [num_words, max_span_width]
+
+        candidate_starts = candidate_starts.to(device)
+        candidate_ends = candidate_ends.to(device)
 
         candidate_start_sentence_indices = flattened_sentence_indices[candidate_starts]  # [num_words, max_span_width]
         # Ensure candidate ends do not exceed the maximum word index (num_words - 1)
@@ -95,7 +100,7 @@ class SpanBERTCorefModel(nn.Module):
         same_span = same_start & same_end
         true_indices = torch.nonzero(same_span).squeeze()
 
-        candidate_labels = torch.matmul(labels.unsqueeze(0), same_span.to(torch.int64))
+        candidate_labels = torch.matmul(labels.unsqueeze(0).to(torch.float32), same_span.to(torch.float32))
 
         return candidate_labels.squeeze(0)
 
@@ -118,6 +123,7 @@ class SpanBERTCorefModel(nn.Module):
 
     def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map):
         # Pass the document through the transformer encoder
+        device = input_ids.device
         transformer_outputs = self.bert(input_ids=input_ids,
                                         attention_mask=input_mask)
 
@@ -140,6 +146,8 @@ class SpanBERTCorefModel(nn.Module):
 
         embedding_size = candidate_span_emb.size(1)  # span_emb shape is [k, embedding_dim], so embedding_dim = span_emb.size(1)
         model_mention_scorer = MentionScoreCalculator(self.config, embedding_size)
+        model_mention_scorer = model_mention_scorer.to(device)
+
         candidate_mention_scores = model_mention_scorer(candidate_span_emb, candidate_starts, candidate_ends)
 
         candidate_mention_scores = torch.squeeze(candidate_mention_scores, 1)
@@ -163,6 +171,9 @@ class SpanEmbeddingModule(nn.Module):
         # Calculate span width index (0-based)
         span_width_index = span_width - 1  # [k]
 
+        device = span_width.device
+        self.span_width_embeddings.data = self.span_width_embeddings.data.to(device)
+
         # Gather span width embeddings
         span_width_emb = self.span_width_embeddings[span_width_index]  # [k, emb]
 
@@ -185,19 +196,25 @@ class MentionWordScorer(nn.Module):
         num_words = encoded_doc.size(0)  # T: Number of words in the document
         num_c = span_starts.size(0)  # NC: Number of candidate spans
 
+
         # Create a document range tensor [T] and tile it for each candidate span [num_c, T]
-        doc_range = torch.arange(0, num_words).unsqueeze(0).repeat(num_c, 1)  # [num_c, T]
+        device = encoded_doc.device
+        doc_range = torch.arange(0, num_words).unsqueeze(0).repeat(num_c, 1).to(device)  # [num_c, T]
+        span_starts = span_starts.to(device)
+        span_ends = span_ends.to(device)
+        self.word_attn_proj = self.word_attn_proj.to(device) 
 
         # Create mention mask: True for words within the span, False otherwise
         mention_mask = (doc_range >= span_starts.unsqueeze(1)) & (doc_range <= span_ends.unsqueeze(1))  # [num_c, T]
+        mention_mask = mention_mask.float().to(device) 
 
         # Word attention using a linear projection on encoded_doc [T, emb]
-        word_attn = self.word_attn_proj(encoded_doc).squeeze(1)  # [T]
+        word_attn = self.word_attn_proj(encoded_doc).squeeze(1).to(device)  # [T]
 
         # Apply mask and softmax for attention scores
         # Convert mention_mask to float, take log for stability
         mention_mask = mention_mask.float()  # [num_c, T]
-        mention_word_attn = F.softmax(torch.log(mention_mask + 1e-10) + word_attn.unsqueeze(0), dim=-1)  # [num_c, T]
+        mention_word_attn = F.softmax(torch.log(mention_mask + 1e-10).to(device) + word_attn.unsqueeze(0), dim=-1)  # [num_c, T]
 
         return mention_word_attn
 
@@ -233,6 +250,7 @@ class MentionScoreCalculator(nn.Module):
 
     def forward(self, span_emb, span_starts, span_ends):
         # Compute span scores
+       
         span_scores = self.ffnn(self.dropout(span_emb))
 
         if self.config['use_prior']:
