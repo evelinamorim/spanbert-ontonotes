@@ -11,9 +11,6 @@ class ExtractSpans(nn.Module):
         self.sort_spans = sort_spans
 
     def forward(self, span_scores, candidate_starts, candidate_ends, num_output_spans, max_sentence_length):
-        span_scores = span_scores.squeeze(0)
-        candidate_starts = candidate_starts.squeeze(0)
-        candidate_ends = candidate_ends.squeeze(0)
         num_output_spans = num_output_spans.item()
 
         num_sentences = span_scores.size(0)
@@ -217,7 +214,11 @@ class SpanBERTCorefModel(nn.Module):
         c = torch.min(torch.tensor(self.config.MAX_TOP_ANTECEDENTS), k).to(device)
 
         # pull from beam
-        top_span_indices = self.extract_spans(candidate_mention_scores, candidate_starts, candidate_ends, k, num_words)
+        top_span_indices = self.extract_spans(candidate_mention_scores.unsqueeze(0),
+                                              candidate_starts.unsqueeze(0),
+                                              candidate_ends.unsqueeze(0),
+                                              k.unsqueeze(0),
+                                              num_words)
         #top_span_indices = coref_ops.extract_spans(tf.expand_dims(candidate_mention_scores, 0),
         #                                           tf.expand_dims(candidate_starts, 0),
         #                                           tf.expand_dims(candidate_ends, 0),
