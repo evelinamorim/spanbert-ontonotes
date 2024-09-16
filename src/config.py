@@ -20,4 +20,6 @@ class Config:
     FEATURE_SIZE = 20 # copied from https://github.com/mandarjoshi90/coref
     USE_FEATURES = True # copied from https://github.com/mandarjoshi90/coref
     MODEL_HEADS = True  # copied from https://github.com/mandarjoshi90/coref
+    TOP_SPAN_RATIO = 0.4   # copied from https://github.com/mandarjoshi90/coref
+    MAX_TOP_ANTECEDENTS = 50  # copied from https://github.com/mandarjoshi90/coref
     # Add other configuration parameters here

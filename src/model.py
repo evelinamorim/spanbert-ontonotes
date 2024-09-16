@@ -5,11 +5,69 @@ import torch.nn as nn
 from transformers import BertModel, BertTokenizer
 import torch.nn.functional as F
 
+class ExtractSpans(nn.Module):
+    def __init__(self, sort_spans):
+        super(ExtractSpans, self).__init__()
+        self.sort_spans = sort_spans
+
+    def forward(self, span_scores, candidate_starts, candidate_ends, num_output_spans, max_sentence_length):
+        span_scores = span_scores.squeeze(0)
+        candidate_starts = candidate_starts.squeeze(0)
+        candidate_ends = candidate_ends.squeeze(0)
+        num_output_spans = num_output_spans.item()
+
+        num_sentences = span_scores.size(0)
+        num_input_spans = span_scores.size(1)
+        max_num_output_spans = num_output_spans
+
+        output_span_indices = torch.zeros((num_sentences, max_num_output_spans), dtype=torch.int32)
+
+        for l in range(num_sentences):
+            sorted_indices = torch.argsort(span_scores[l], descending=True)
+            top_span_indices = []
+            end_to_earliest_start = {}
+            start_to_latest_end = {}
+
+            current_span_index = 0
+            num_selected_spans = 0
+            while num_selected_spans < num_output_spans and current_span_index < num_input_spans:
+                i = sorted_indices[current_span_index].item()
+                any_crossing = False
+                start = candidate_starts[l, i].item()
+                end = candidate_ends[l, i].item()
+                for j in range(start, end + 1):
+                    if (j in start_to_latest_end and j > start and start_to_latest_end[j] > end) or \
+                       (j in end_to_earliest_start and j < end and end_to_earliest_start[j] < start):
+                        any_crossing = True
+                        break
+                if not any_crossing:
+                    if self.sort_spans:
+                        top_span_indices.append(i)
+                    else:
+                        output_span_indices[l, num_selected_spans] = i
+                    num_selected_spans += 1
+                    if start not in start_to_latest_end or end > start_to_latest_end[start]:
+                        start_to_latest_end[start] = end
+                    if end not in end_to_earliest_start or start < end_to_earliest_start[end]:
+                        end_to_earliest_start[end] = start
+                current_span_index += 1
+
+            if self.sort_spans:
+                top_span_indices.sort(key=lambda i: (candidate_starts[l, i].item(), candidate_ends[l, i].item()))
+                for i in range(num_output_spans):
+                    output_span_indices[l, i] = top_span_indices[i]
+
+            for i in range(num_selected_spans, max_num_output_spans):
+                output_span_indices[l, i] = output_span_indices[l, 0]
+
+        return output_span_indices
+
 class SpanBERTCorefModel(nn.Module):
     def __init__(self, config):
 
         super(SpanBERTCorefModel, self).__init__()
         self.bert = self.bert = BertModel.from_pretrained(config.MODEL_NAME)
+        self.extract_spans = ExtractSpans(sort_spans=True)
 
         self.config = config
 
@@ -127,6 +185,8 @@ class SpanBERTCorefModel(nn.Module):
         transformer_outputs = self.bert(input_ids=input_ids,
                                         attention_mask=input_mask)
 
+        self.extract_spans.to(device)
+
         # Extract the hidden states from the last layer of the transformer
         sequence_output = transformer_outputs.last_hidden_state
         sequence_output = self.__flatten_emb_by_sentence(sequence_output, input_mask)
@@ -149,8 +209,22 @@ class SpanBERTCorefModel(nn.Module):
         model_mention_scorer = model_mention_scorer.to(device)
 
         candidate_mention_scores = model_mention_scorer(candidate_span_emb, candidate_starts, candidate_ends)
-
         candidate_mention_scores = torch.squeeze(candidate_mention_scores, 1)
+
+        # beam size
+        k = torch.min(torch.tensor(3900),
+                      torch.floor(torch.tensor(num_words, dtype=torch.float32) * self.config.TOP_SPAN_RATIO).to(
+                          torch.int32)).to(device)
+        c = torch.min(torch.tensor(self.config.MAX_TOP_ANTECEDENTS), k).to(device)
+
+        # pull from beam
+        top_span_indices = self.extract_spans(candidate_mention_scores, candidate_starts, candidate_ends, k, num_words)
+        #top_span_indices = coref_ops.extract_spans(tf.expand_dims(candidate_mention_scores, 0),
+        #                                           tf.expand_dims(candidate_starts, 0),
+        #                                           tf.expand_dims(candidate_ends, 0),
+        #                                           tf.expand_dims(k, 0),
+        #                                           num_words,
+        #                                           True)  # [1, k]
 
         return sequence_output
 
