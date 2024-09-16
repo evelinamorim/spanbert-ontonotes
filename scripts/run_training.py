@@ -31,22 +31,33 @@ if __name__ == '__main__':
     model.train()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
+    scaler = torch.cuda.amp.GradScaler()
+    accumulation_steps = 4
 
     start_time = time.time()
     # Iterate through one batch from the DataLoader
     for idx,batch in enumerate(dataloader):
         batch = tuple(item.to(device) if torch.is_tensor(item) else item for item in batch)
-        print(torch.cuda.memory_summary(device=None, abbreviated=False))
 
         #if idx % 10 == 0:
         print("Batch %d from %d" % (idx, len(dataloader)))
 
         optimizer.zero_grad()
-        output = model(*batch)
+        with torch.cuda.amp.autocast():  # Mixed precision context
+            output = model(*batch)
+            loss = output.loss / accumulation_steps  # Scale loss
+
+        scaler.scale(loss).backward()
+
+        if (idx + 1) % accumulation_steps == 0:
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
+            torch.cuda.empty_cache()
 
         if idx == 10:
             break
-        torch.cuda.empty_cache()
+
 
 
     print("Total Running time = {:.3f} seconds".format(time.time() - start_time))
