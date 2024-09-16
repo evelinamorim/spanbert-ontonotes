@@ -253,7 +253,7 @@ class MentionScoreCalculator(nn.Module):
        
         span_scores = self.ffnn(self.dropout(span_emb))
 
-        if self.config['use_prior']:
+        if self.config.USE_PRIOR:
             # Compute span width index
             span_width_index = span_ends - span_starts
 
