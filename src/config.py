@@ -24,3 +24,4 @@ class Config:
 
     TOP_SPAN_RATIO = 0.4 # copied from https://github.com/mandarjoshi90/coref
     MAX_TOP_ANTECEDENTS = 50 # copied from https://github.com/mandarjoshi90/coref
+    USE_METADATA = True # copied from https://github.com/mandarjoshi90/coref

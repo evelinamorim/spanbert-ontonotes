@@ -231,6 +231,13 @@ class SpanBERTCorefModel(nn.Module):
 
         genre_embeddings = nn.Parameter(torch.randn(len(self.config.GENRES), self.config.FEATURE_SIZE) * 0.02)
         genre_emb = genre_embeddings[genre]
+
+        if self.config.USE_METADATA:
+            speaker_ids = self.__flatten_emb_by_sentence(speaker_ids, input_mask)
+            top_span_speaker_ids = speaker_ids[top_span_starts]  # [k]
+        else:
+            top_span_speaker_ids = None
+
         return sequence_output
 
 
