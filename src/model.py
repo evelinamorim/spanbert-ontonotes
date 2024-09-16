@@ -219,12 +219,18 @@ class SpanBERTCorefModel(nn.Module):
                                               candidate_ends.unsqueeze(0),
                                               k.unsqueeze(0),
                                               num_words)
-        #top_span_indices = coref_ops.extract_spans(tf.expand_dims(candidate_mention_scores, 0),
-        #                                           tf.expand_dims(candidate_starts, 0),
-        #                                           tf.expand_dims(candidate_ends, 0),
-        #                                           tf.expand_dims(k, 0),
-        #                                           num_words,
-        #                                           True)  # [1, k]
+
+        top_span_indices = top_span_indices.view(-1)  # Flatten the tensor to shape [k]
+
+        top_span_starts = torch.gather(candidate_starts, 0, top_span_indices)  # [k]
+        top_span_ends = torch.gather(candidate_ends, 0, top_span_indices)  # [k]
+        top_span_emb = torch.gather(candidate_span_emb, 0,
+                                    top_span_indices.unsqueeze(1).expand(-1, candidate_span_emb.size(1)))  # [k, emb]
+        top_span_cluster_ids = torch.gather(candidate_cluster_ids, 0, top_span_indices)  # [k]
+        top_span_mention_scores = torch.gather(candidate_mention_scores, 0, top_span_indices)  # [k]
+
+        genre_embeddings = nn.Parameter(torch.randn(len(self.config.GENRES), self.config.FEATURE_SIZE) * 0.02)
+        genre_emb = torch.gather(genre_embeddings, 0, genre.unsqueeze(0)).squeeze(0)  # [emb]
 
         return sequence_output
 
