@@ -31,7 +31,7 @@ if __name__ == '__main__':
     start_time = time.time()
     # Iterate through one batch from the DataLoader
     for idx,batch in enumerate(dataloader):
-        batch = [item.to(device) for item in batch]
+        batch = tuple(item.to(device) if torch.is_tensor(item) else item for item in batch)
 
         optimizer.zero_grad()
         output = model(*batch)
