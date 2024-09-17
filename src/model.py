@@ -1,9 +1,15 @@
 #Contains the implementation of the SpanBERT-based model, including the span scoring mechanism.
+import math
+
 import torch
 import torch.nn as nn
 
 from transformers import BertModel, BertTokenizer
 import torch.nn.functional as F
+import torch.nn.init as init
+
+import utils
+
 
 class ExtractSpans(nn.Module):
     def __init__(self, sort_spans):
@@ -82,8 +88,23 @@ class SpanBERTCorefModel(nn.Module):
             nn.Linear(150, 1)
         )
 
+        self.antecedent_distance_emb = nn.Parameter(
+            torch.randn(10, self.config.FEATURE_SIZE) * 0.02
+        )
+
         self.max_span_length = config.MAX_TRAIN_LEN
         self.max_span_length = config.MAX_SPAN_WIDTH
+
+    def projection(self, inputs, output_size):
+        linear_layer = nn.Linear(inputs.size(-1), output_size)
+        init.trunc_normal_(linear_layer.weight, std=0.02)
+
+        ffnn = nn.Sequential(
+            linear_layer,
+            nn.ReLU()
+        )
+
+        return ffnn(inputs)
 
     def __prepare_spans_candidates(self, sentence_map, num_words):
 
@@ -175,6 +196,55 @@ class SpanBERTCorefModel(nn.Module):
         flattened_mask = text_len_mask.view(num_sentences * max_sentence_length).bool()
         return flattened_emb[flattened_mask]
 
+    def __get_fast_antecedent_scores(self, top_span_emb):
+
+        source_top_span_emb = F.dropout(self.projection(top_span_emb, top_span_emb.size(-1)), p=self.dropout,
+                                        training=self.training)  # [k, emb]
+
+        # Target Span Embeddings with Dropout
+        target_top_span_emb = F.dropout(top_span_emb, p=self.dropout, training=self.training)  # [k, emb]
+
+        # Matrix Multiplication
+        return torch.matmul(source_top_span_emb, target_top_span_emb.transpose(0, 1))  # [k, k]
+
+    def __bucket_distance(self, distances):
+        """
+        Places the given values (designed for distances) into 10 semi-logscale buckets:
+        [0, 1, 2, 3, 4, 5-7, 8-15, 16-31, 32-63, 64+].
+        """
+        logspace_idx = torch.floor(torch.log(distances.float()) / math.log(2)).int() + 3
+        use_identity = (distances <= 4).int()
+        combined_idx = use_identity * distances + (1 - use_identity) * logspace_idx
+        return torch.clamp(combined_idx, 0, 9)
+
+    def __coarse_to_fine_pruning(self, top_span_emb, top_span_mention_scores, c, is_training):
+
+        k = top_span_emb.size(0)
+
+        top_span_range = torch.arange(k)  # [k]
+        antecedent_offsets = top_span_range.unsqueeze(1) - top_span_range.unsqueeze(0)  # [k, k]
+        antecedents_mask = antecedent_offsets >= 1  # [k, k]
+        fast_antecedent_scores = torch.unsqueeze(top_span_mention_scores, 1) + torch.unsqueeze(top_span_mention_scores,
+                                                                                               0)  # [k, k]
+        fast_antecedent_scores += torch.log(antecedents_mask.float())  # [k, k]
+        fast_antecedent_scores += self.__get_fast_antecedent_scores(top_span_emb)
+
+        if self.config.USE_PRIOR:
+            antecedent_distance_buckets = self.__bucket_distance(antecedent_offsets)
+            distance_emb_dropout = F.dropout(self.antecedent_distance_emb, p=self.config.DROPOUT_RATE, training=is_training)
+            distance_scores = self.projection(distance_emb_dropout,1)
+            antecedent_distance_scores = torch.gather(distance_scores.squeeze(1), 0,
+                                                      antecedent_distance_buckets)  # [k, c]
+            fast_antecedent_scores += antecedent_distance_scores
+
+        top_fast_antecedent_scores, top_antecedents = torch.topk(fast_antecedent_scores, c, dim=1, largest=True,
+                                                                 sorted=False)  # [k, c]
+        top_antecedents_mask = utils.batch_gather(antecedents_mask, top_antecedents)  # [k, c]
+        top_fast_antecedent_scores = utils.batch_gather(fast_antecedent_scores, top_antecedents)  # [k, c]
+        top_antecedent_offsets = utils.batch_gather(antecedent_offsets, top_antecedents)  # [k, c]
+
+        return top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets
+
     def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map):
         # Pass the document through the transformer encoder
         device = input_ids.device
@@ -237,6 +307,10 @@ class SpanBERTCorefModel(nn.Module):
             top_span_speaker_ids = speaker_ids[top_span_starts]  # [k]
         else:
             top_span_speaker_ids = None
+
+        dummy_scores = torch.zeros((k, 1)).to(device)
+        top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets = self.__coarse_to_fine_pruning(
+            top_span_emb, top_span_mention_scores, c, is_training)
 
         return sequence_output
 
