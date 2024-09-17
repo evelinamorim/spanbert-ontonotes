@@ -8,7 +8,7 @@ from transformers import BertModel, BertTokenizer
 import torch.nn.functional as F
 import torch.nn.init as init
 
-import utils
+from src import utils
 
 
 class ExtractSpans(nn.Module):
@@ -96,13 +96,17 @@ class SpanBERTCorefModel(nn.Module):
         self.max_span_length = config.MAX_SPAN_WIDTH
 
     def projection(self, inputs, output_size):
-        linear_layer = nn.Linear(inputs.size(-1), output_size)
+
+        device = inputs.device
+
+        linear_layer = nn.Linear(inputs.size(-1), output_size).to(device)
         init.trunc_normal_(linear_layer.weight, std=0.02)
 
         ffnn = nn.Sequential(
             linear_layer,
             nn.ReLU()
         )
+
 
         return ffnn(inputs)
 
@@ -198,11 +202,11 @@ class SpanBERTCorefModel(nn.Module):
 
     def __get_fast_antecedent_scores(self, top_span_emb):
 
-        source_top_span_emb = F.dropout(self.projection(top_span_emb, top_span_emb.size(-1)), p=self.dropout,
+        source_top_span_emb = F.dropout(self.projection(top_span_emb, top_span_emb.size(-1)), p=self.config.DROPOUT_RATE,
                                         training=self.training)  # [k, emb]
 
         # Target Span Embeddings with Dropout
-        target_top_span_emb = F.dropout(top_span_emb, p=self.dropout, training=self.training)  # [k, emb]
+        target_top_span_emb = F.dropout(top_span_emb, p=self.config.DROPOUT_RATE, training=self.training)  # [k, emb]
 
         # Matrix Multiplication
         return torch.matmul(source_top_span_emb, target_top_span_emb.transpose(0, 1))  # [k, k]
@@ -221,7 +225,9 @@ class SpanBERTCorefModel(nn.Module):
 
         k = top_span_emb.size(0)
 
-        top_span_range = torch.arange(k)  # [k]
+        device = top_span_emb
+
+        top_span_range = torch.arange(k).to(device)  # [k]
         antecedent_offsets = top_span_range.unsqueeze(1) - top_span_range.unsqueeze(0)  # [k, k]
         antecedents_mask = antecedent_offsets >= 1  # [k, k]
         fast_antecedent_scores = torch.unsqueeze(top_span_mention_scores, 1) + torch.unsqueeze(top_span_mention_scores,
@@ -232,9 +238,12 @@ class SpanBERTCorefModel(nn.Module):
         if self.config.USE_PRIOR:
             antecedent_distance_buckets = self.__bucket_distance(antecedent_offsets)
             distance_emb_dropout = F.dropout(self.antecedent_distance_emb, p=self.config.DROPOUT_RATE, training=is_training)
-            distance_scores = self.projection(distance_emb_dropout,1)
-            antecedent_distance_scores = torch.gather(distance_scores.squeeze(1), 0,
-                                                      antecedent_distance_buckets)  # [k, c]
+            distance_scores = self.projection(distance_emb_dropout,1).squeeze(1)
+
+
+            antecedent_distance_scores = distance_scores[antecedent_distance_buckets.long()]
+            #antecedent_distance_scores = torch.gather(distance_scores.squeeze(1), 0,
+            #                                          antecedent_distance_buckets.long())  # [k, c]
             fast_antecedent_scores += antecedent_distance_scores
 
         top_fast_antecedent_scores, top_antecedents = torch.topk(fast_antecedent_scores, c, dim=1, largest=True,
