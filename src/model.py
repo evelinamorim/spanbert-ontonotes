@@ -243,6 +243,9 @@ class SpanBERTCorefModel(nn.Module):
         top_fast_antecedent_scores = utils.batch_gather(fast_antecedent_scores, top_antecedents)  # [k, c]
         top_antecedent_offsets = utils.batch_gather(antecedent_offsets, top_antecedents)  # [k, c]
 
+        top_fast_antecedent_scores = utils.batch_gather(fast_antecedent_scores, top_antecedents)  # [k, c]
+        top_antecedent_offsets = utils.batch_gather(antecedent_offsets, top_antecedents)  # [k, c]
+
         return top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets
 
     def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map):
