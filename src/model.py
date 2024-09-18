@@ -248,6 +248,7 @@ class SpanBERTCorefModel(nn.Module):
 
         top_fast_antecedent_scores, top_antecedents = torch.topk(fast_antecedent_scores, c, dim=1, largest=True,
                                                                  sorted=False)  # [k, c]
+
         top_antecedents_mask = utils.batch_gather(antecedents_mask, top_antecedents)  # [k, c]
         top_fast_antecedent_scores = utils.batch_gather(fast_antecedent_scores, top_antecedents)  # [k, c]
         top_antecedent_offsets = utils.batch_gather(antecedent_offsets, top_antecedents)  # [k, c]

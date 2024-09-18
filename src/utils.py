@@ -16,9 +16,13 @@ def batch_gather(emb, indices):
 
     flattened_emb = emb.view(batch_size * seqlen, emb_size)  # [batch_size * seqlen, emb]
     offset = (torch.arange(batch_size) * seqlen).unsqueeze(1).to(indices.device)  # [batch_size, 1]
-    gathered = torch.gather(flattened_emb, 0, indices + offset)  # [batch_size, num_indices, emb]
+
+    adjusted_indices = indices + offset
+    gathered_embeddings = flattened_emb[adjusted_indices.view(-1)]  
+    gathered_embeddings = gathered_embeddings.view(batch_size, indices.size(1), -1) # [batch_size, num_indices, emb]
+
 
     if emb.dim() == 2:
-        gathered = gathered.squeeze(2)  # [batch_size, num_indices]
+        gathered_embeddings = gathered_embeddings.squeeze(2)  # [batch_size, num_indices]
 
-    return gathered
+    return gathered_embeddings
