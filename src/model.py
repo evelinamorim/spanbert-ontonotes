@@ -200,6 +200,56 @@ class SpanBERTCorefModel(nn.Module):
         flattened_mask = text_len_mask.view(num_sentences * max_sentence_length).bool()
         return flattened_emb[flattened_mask]
 
+    def get_slow_antecedent_scores(self, top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets,
+                                   top_span_speaker_ids, genre_emb, segment_distance=None):
+        k = top_span_emb.size(0)
+        c = top_antecedents.size(1)
+
+        feature_emb_list = []
+
+        if self.config.USE_METADATA:
+            top_antecedent_speaker_ids = torch.gather(top_span_speaker_ids, top_antecedents)  # [k, c]
+            same_speaker = torch.eq(top_span_speaker_ids.unsqueeze(1), top_antecedent_speaker_ids)  # [k, c]
+
+            same_speaker_emb = nn.Parameter(torch.randn(2, self.config.FEATURE_SIZE) * 0.02)
+            init.trunc_normal_(same_speaker_emb, std=0.02)
+            speaker_pair_emb = torch.gather(same_speaker_emb, 0, same_speaker.to(torch.int32))  # [k, c, emb]
+            feature_emb_list.append(speaker_pair_emb)
+
+            #tiled_genre_emb = tf.tile(tf.expand_dims(genre_emb.unsqueeze(0).unsqueeze(0), [k, c, 1])  # [k, c, emb]
+            #feature_emb_list.append(tiled_genre_emb)
+
+        #if self.config["use_features"]:
+        #    antecedent_distance_buckets = self.bucket_distance(top_antecedent_offsets)  # [k, c]
+        #    antecedent_distance_emb = tf.gather(
+        #        tf.get_variable("antecedent_distance_emb", [10, self.config["feature_size"]],
+        #                        initializer=tf.truncated_normal_initializer(stddev=0.02)),
+        #        antecedent_distance_buckets)  # [k, c]
+        #    feature_emb_list.append(antecedent_distance_emb)
+        #if segment_distance is not None:
+        #    with tf.variable_scope('segment_distance', reuse=tf.AUTO_REUSE):
+        #        segment_distance_emb = tf.gather(tf.get_variable("segment_distance_embeddings",
+        #                                                         [self.config['max_training_sentences'],
+        #                                                          self.config["feature_size"]],
+        #                                                         initializer=tf.truncated_normal_initializer(
+        #                                                             stddev=0.02)), segment_distance)  # [k, emb]
+       #     feature_emb_list.append(segment_distance_emb)
+
+        #feature_emb = tf.concat(feature_emb_list, 2)  # [k, c, emb]
+        #feature_emb = tf.nn.dropout(feature_emb, self.dropout)  # [k, c, emb]
+
+        #target_emb = tf.expand_dims(top_span_emb, 1)  # [k, 1, emb]
+        #similarity_emb = top_antecedent_emb * target_emb  # [k, c, emb]
+        #target_emb = tf.tile(target_emb, [1, c, 1])  # [k, c, emb]
+
+        #pair_emb = tf.concat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], 2)  # [k, c, emb]
+
+        #with tf.variable_scope("slow_antecedent_scores"):
+        #    slow_antecedent_scores = util.ffnn(pair_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1,
+        #                                       self.dropout)  # [k, c, 1]
+        #slow_antecedent_scores = tf.squeeze(slow_antecedent_scores, 2)  # [k, c]
+        #return slow_antecedent_scores  # [k, c]
+
     def __get_fast_antecedent_scores(self, top_span_emb):
 
         source_top_span_emb = F.dropout(self.projection(top_span_emb, top_span_emb.size(-1)), p=self.config.DROPOUT_RATE,
@@ -324,6 +374,22 @@ class SpanBERTCorefModel(nn.Module):
         dummy_scores = torch.zeros((k, 1)).to(device)
         top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets = self.__coarse_to_fine_pruning(
             top_span_emb, top_span_mention_scores, c, is_training)
+
+        num_segs, seg_len = input_ids.size(0), input_ids.size(1)
+        word_segments = torch.arange(0, num_segs).unsqueeze(1).repeat(1, seg_len)  # [num_segs, seg_len]
+        flat_word_segments = word_segments.view(-1)[input_mask.view(-1).bool()]  # [num_words]
+        mention_segments = flat_word_segments[top_span_starts].unsqueeze(1)  # [k, 1]
+        antecedent_segments = flat_word_segments[top_span_starts[top_antecedents]]  # [k, c]
+        if self.config.USE_SEGMENT_DISTANCES:
+            segment_distance = torch.clamp(mention_segments - antecedent_segments, min=0,
+                                           max=self.config.MAX_TRAINING_SENTENCES - 1)  # [k, c]
+        else:
+            segment_distance = None
+
+        if self.config.FINE_GRAINED:
+            for i in range(self.config.COREF_DEPTH):
+                if i > 0:
+                    pass
 
         return sequence_output
 

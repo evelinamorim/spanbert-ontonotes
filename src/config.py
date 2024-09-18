@@ -25,3 +25,8 @@ class Config:
     TOP_SPAN_RATIO = 0.4 # copied from https://github.com/mandarjoshi90/coref
     MAX_TOP_ANTECEDENTS = 50 # copied from https://github.com/mandarjoshi90/coref
     USE_METADATA = True # copied from https://github.com/mandarjoshi90/coref
+    USE_SEGMENT_DISTANCES = True # copied from https://github.com/mandarjoshi90/coref
+    MAX_TRAINING_SENTENCES = 50 # copied from https://github.com/mandarjoshi90/coref
+
+    FINE_GRAINED = True # copied from https://github.com/mandarjoshi90/coref
+    COREF_DEPTH = 2 # copied from https://github.com/mandarjoshi90/coref

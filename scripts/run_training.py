@@ -45,6 +45,10 @@ if __name__ == '__main__':
         optimizer.zero_grad()
         with torch.cuda.amp.autocast():  # Mixed precision context
             output = model(*batch)
+            print("All model parameters:")
+            for name, param in model.named_parameters():
+                print(name, param.size())
+
             loss = output.loss / accumulation_steps  # Scale loss
 
         scaler.scale(loss).backward()
