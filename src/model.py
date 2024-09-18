@@ -376,7 +376,7 @@ class SpanBERTCorefModel(nn.Module):
             top_span_emb, top_span_mention_scores, c, is_training)
 
         num_segs, seg_len = input_ids.size(0), input_ids.size(1)
-        word_segments = torch.arange(0, num_segs).unsqueeze(1).repeat(1, seg_len)  # [num_segs, seg_len]
+        word_segments = torch.arange(0, num_segs).unsqueeze(1).repeat(1, seg_len).to(device)  # [num_segs, seg_len]
         flat_word_segments = word_segments.view(-1)[input_mask.view(-1).bool()]  # [num_words]
         mention_segments = flat_word_segments[top_span_starts].unsqueeze(1)  # [k, 1]
         antecedent_segments = flat_word_segments[top_span_starts[top_antecedents]]  # [k, c]
