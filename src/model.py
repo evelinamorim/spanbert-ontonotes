@@ -202,18 +202,23 @@ class SpanBERTCorefModel(nn.Module):
 
     def get_slow_antecedent_scores(self, top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets,
                                    top_span_speaker_ids, genre_emb, segment_distance=None):
+        device = top_span_emb.device
         k = top_span_emb.size(0)
         c = top_antecedents.size(1)
 
         feature_emb_list = []
 
         if self.config.USE_METADATA:
-            top_antecedent_speaker_ids = torch.gather(top_span_speaker_ids, top_antecedents)  # [k, c]
+            top_antecedent_speaker_ids = top_span_speaker_ids[top_antecedents]  # [k, c]
             same_speaker = torch.eq(top_span_speaker_ids.unsqueeze(1), top_antecedent_speaker_ids)  # [k, c]
 
-            same_speaker_emb = nn.Parameter(torch.randn(2, self.config.FEATURE_SIZE) * 0.02)
+            same_speaker_emb = nn.Parameter(torch.randn(2, self.config.FEATURE_SIZE) * 0.02).to(device)
             init.trunc_normal_(same_speaker_emb, std=0.02)
-            speaker_pair_emb = torch.gather(same_speaker_emb, 0, same_speaker.to(torch.int32))  # [k, c, emb]
+            #speaker_pair_emb = torch.gather(same_speaker_emb, 0, same_speaker.to(torch.int64))  # [k, c, emb]
+            #speaker_pair_emb = same_speaker_emb[same_speaker] # [k, c, emb]
+            speaker_pair_emb = torch.gather(
+                        same_speaker_emb, 0, same_speaker.unsqueeze(-1).expand(-1, -1, same_speaker_emb.size(-1)).to(torch.int64)
+                        )
             feature_emb_list.append(speaker_pair_emb)
 
             tiled_genre_emb = genre_emb.unsqueeze(0).unsqueeze(0).repeat([k, c, 1])  # [k, c, emb]
@@ -389,7 +394,7 @@ class SpanBERTCorefModel(nn.Module):
         if self.config.FINE_GRAINED:
             for i in range(self.config.COREF_DEPTH):
                 if i > 0:
-                    top_antecedent_emb = torch.gather(top_span_emb, top_antecedents)
+                    top_antecedent_emb = top_span_emb[top_antecedents] # [k, c, emb]
                     top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb,top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb, segment_distance) # [k, c]
 
         return sequence_output
