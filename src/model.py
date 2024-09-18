@@ -216,8 +216,8 @@ class SpanBERTCorefModel(nn.Module):
             speaker_pair_emb = torch.gather(same_speaker_emb, 0, same_speaker.to(torch.int32))  # [k, c, emb]
             feature_emb_list.append(speaker_pair_emb)
 
-            #tiled_genre_emb = tf.tile(tf.expand_dims(genre_emb.unsqueeze(0).unsqueeze(0), [k, c, 1])  # [k, c, emb]
-            #feature_emb_list.append(tiled_genre_emb)
+            tiled_genre_emb = genre_emb.unsqueeze(0).unsqueeze(0).repeat([k, c, 1])  # [k, c, emb]
+            feature_emb_list.append(tiled_genre_emb)
 
         #if self.config["use_features"]:
         #    antecedent_distance_buckets = self.bucket_distance(top_antecedent_offsets)  # [k, c]
@@ -389,7 +389,8 @@ class SpanBERTCorefModel(nn.Module):
         if self.config.FINE_GRAINED:
             for i in range(self.config.COREF_DEPTH):
                 if i > 0:
-                    pass
+                    top_antecedent_emb = torch.gather(top_span_emb, top_antecedents)
+                    top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb,top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb, segment_distance) # [k, c]
 
         return sequence_output
 
