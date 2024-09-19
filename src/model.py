@@ -65,7 +65,53 @@ class ExtractSpans(nn.Module):
 
         return output_span_indices
 
+
+class FFNN(nn.Module):
+    def __init__(self, input_size, num_hidden_layers, hidden_size, output_size, dropout):
+        super(FFNN, self).__init__()
+        layers = []
+
+        # Add hidden layers
+        for _ in range(num_hidden_layers):
+            layers.append(nn.Linear(input_size, hidden_size))
+            layers.append(nn.ReLU())
+            if dropout is not None:
+                layers.append(nn.Dropout(dropout))
+            input_size = hidden_size
+
+        # Add output layer
+        layers.append(nn.Linear(input_size, output_size))
+
+        self.ffnn = nn.Sequential(*layers)
+
+    def forward(self, inputs):
+        if inputs.dim() > 3:
+            raise ValueError(f"FFNN with rank {inputs.dim()} not supported")
+
+        if inputs.dim() == 3:
+            batch_size, seqlen, emb_size = inputs.size()
+            inputs = inputs.view(batch_size * seqlen, emb_size)
+
+        outputs = self.ffnn(inputs)
+
+        if inputs.dim() == 3:
+            outputs = outputs.view(batch_size, seqlen, -1)
+
+        return outputs
+
 class SpanBERTCorefModel(nn.Module):
+
+    ## this class is to represent the segment distance embedding
+    class SegmentLayer(nn.Module):
+        def __init__(self, max_training_sentences, feature_size):
+            super(SpanBERTCorefModel.SegmentLayer, self).__init__()
+            self.segment_distance_emb = nn.Parameter(
+                torch.randn(max_training_sentences, feature_size) * 0.02
+            )
+
+        def forward(self, segment_distance):
+            return  self.segment_distance_emb[segment_distance]
+
     def __init__(self, config):
 
         super(SpanBERTCorefModel, self).__init__()
@@ -94,6 +140,16 @@ class SpanBERTCorefModel(nn.Module):
 
         self.max_span_length = config.MAX_TRAIN_LEN
         self.max_span_length = config.MAX_SPAN_WIDTH
+
+        self.segment_distance_layer = SpanBERTCorefModel.SegmentLayer(config.MAX_TRAINING_SENTENCES, config.FEATURE_SIZE)
+
+        self.slow_antecedent_ffnn = FFNN(
+            input_size=self.bert.config.hidden_size * 6 + self.config.FEATURE_SIZE * 3,  # Adjust input size as needed
+            num_hidden_layers=self.config.FFNN_DEPTH,
+            hidden_size=self.config.FFNN_SIZE,
+            output_size=1,
+            dropout=self.config.DROPOUT_RATE
+        )
 
     def projection(self, inputs, output_size):
 
@@ -201,7 +257,7 @@ class SpanBERTCorefModel(nn.Module):
         return flattened_emb[flattened_mask]
 
     def get_slow_antecedent_scores(self, top_span_emb, top_antecedents, top_antecedent_emb, top_antecedent_offsets,
-                                   top_span_speaker_ids, genre_emb, segment_distance=None):
+                                   top_span_speaker_ids, genre_emb, is_training, segment_distance=None):
         device = top_span_emb.device
         k = top_span_emb.size(0)
         c = top_antecedents.size(1)
@@ -213,7 +269,6 @@ class SpanBERTCorefModel(nn.Module):
             same_speaker = torch.eq(top_span_speaker_ids.unsqueeze(1), top_antecedent_speaker_ids)  # [k, c]
 
             same_speaker_emb = nn.Parameter(torch.randn(2, self.config.FEATURE_SIZE) * 0.02).to(device)
-            init.trunc_normal_(same_speaker_emb, std=0.02)
 
             speaker_pair_emb = same_speaker_emb[same_speaker.long()] # [k, c, emb]
             feature_emb_list.append(speaker_pair_emb)
@@ -221,33 +276,28 @@ class SpanBERTCorefModel(nn.Module):
             tiled_genre_emb = genre_emb.unsqueeze(0).unsqueeze(0).repeat([k, c, 1])  # [k, c, emb]
             feature_emb_list.append(tiled_genre_emb)
 
-        #if self.config["use_features"]:
-        #    antecedent_distance_buckets = self.bucket_distance(top_antecedent_offsets)  # [k, c]
-        #    antecedent_distance_emb = tf.gather(
-        #        tf.get_variable("antecedent_distance_emb", [10, self.config["feature_size"]],
-        #                        initializer=tf.truncated_normal_initializer(stddev=0.02)),
-        #        antecedent_distance_buckets)  # [k, c]
-        #    feature_emb_list.append(antecedent_distance_emb)
-        #if segment_distance is not None:
-        #    with tf.variable_scope('segment_distance', reuse=tf.AUTO_REUSE):
-        #        segment_distance_emb = tf.gather(tf.get_variable("segment_distance_embeddings",
-        #                                                         [self.config['max_training_sentences'],
-        #                                                          self.config["feature_size"]],
-        #                                                         initializer=tf.truncated_normal_initializer(
-        #                                                             stddev=0.02)), segment_distance)  # [k, emb]
-       #     feature_emb_list.append(segment_distance_emb)
+        if self.config.USE_FEATURES:
+            antecedent_distance_buckets = self.__bucket_distance(top_antecedent_offsets)  # [k, c]
+            antecedent_distance_emb = nn.Parameter(torch.randn(10, self.config.FEATURE_SIZE) * 0.02).to(device)
+            antecedent_distance_emb = antecedent_distance_emb[antecedent_distance_buckets.long()]  # [k, c]
 
-        #feature_emb = tf.concat(feature_emb_list, 2)  # [k, c, emb]
-        #feature_emb = tf.nn.dropout(feature_emb, self.dropout)  # [k, c, emb]
+            feature_emb_list.append(antecedent_distance_emb)
 
-        #target_emb = tf.expand_dims(top_span_emb, 1)  # [k, 1, emb]
-        #similarity_emb = top_antecedent_emb * target_emb  # [k, c, emb]
-        #target_emb = tf.tile(target_emb, [1, c, 1])  # [k, c, emb]
+        if segment_distance is not None:
+            segment_distance_emb = self.segment_distance_layer(segment_distance)  # [k, c, emb]
+            feature_emb_list.append(segment_distance_emb)
 
-        #pair_emb = tf.concat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], 2)  # [k, c, emb]
+        feature_emb = torch.cat(feature_emb_list, dim=2)  # [k, c, emb]
+        feature_emb = F.dropout(feature_emb, p=self.config.DROPOUT_RATE, training=self.training)  # [k, c, emb]
+
+        target_emb = top_span_emb.unsqueeze(1)  # [k, 1, emb]
+        similarity_emb = top_antecedent_emb * target_emb  # [k, c, emb]
+        target_emb = target_emb.expand(-1, c, -1)  # [k, c, emb]
+
+        pair_emb = torch.cat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], dim=2)  # [k, c, emb]
 
         #with tf.variable_scope("slow_antecedent_scores"):
-        #    slow_antecedent_scores = util.ffnn(pair_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1,
+        #    slow_antecedent_scores = ffnn(pair_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1,
         #                                       self.dropout)  # [k, c, 1]
         #slow_antecedent_scores = tf.squeeze(slow_antecedent_scores, 2)  # [k, c]
         #return slow_antecedent_scores  # [k, c]
@@ -392,7 +442,7 @@ class SpanBERTCorefModel(nn.Module):
             for i in range(self.config.COREF_DEPTH):
                 if i > 0:
                     top_antecedent_emb = top_span_emb[top_antecedents] # [k, c, emb]
-                    top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb,top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb, segment_distance) # [k, c]
+                    top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb,top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb, is_training, segment_distance) # [k, c]
 
         return sequence_output
 
