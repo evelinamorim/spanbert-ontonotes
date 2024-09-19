@@ -214,11 +214,8 @@ class SpanBERTCorefModel(nn.Module):
 
             same_speaker_emb = nn.Parameter(torch.randn(2, self.config.FEATURE_SIZE) * 0.02).to(device)
             init.trunc_normal_(same_speaker_emb, std=0.02)
-            #speaker_pair_emb = torch.gather(same_speaker_emb, 0, same_speaker.to(torch.int64))  # [k, c, emb]
-            #speaker_pair_emb = same_speaker_emb[same_speaker] # [k, c, emb]
-            speaker_pair_emb = torch.gather(
-                        same_speaker_emb, 0, same_speaker.unsqueeze(-1).expand(-1, -1, same_speaker_emb.size(-1)).to(torch.int64)
-                        )
+
+            speaker_pair_emb = same_speaker_emb[same_speaker.long()] # [k, c, emb]
             feature_emb_list.append(speaker_pair_emb)
 
             tiled_genre_emb = genre_emb.unsqueeze(0).unsqueeze(0).repeat([k, c, 1])  # [k, c, emb]
