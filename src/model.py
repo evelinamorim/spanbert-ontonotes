@@ -301,7 +301,6 @@ class SpanBERTCorefModel(nn.Module):
         ).to(device)
 
         slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
-        print("-->", slow_antecedent_scores.shape)
         slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
 
         return slow_antecedent_scores  # [k, c]
