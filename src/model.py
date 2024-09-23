@@ -88,6 +88,7 @@ class FFNN(nn.Module):
         if inputs.dim() > 3:
             raise ValueError(f"FFNN with rank {inputs.dim()} not supported")
 
+        original_shape = inputs.shape
         if inputs.dim() == 3:
             batch_size, seqlen, emb_size = inputs.size()
             inputs = inputs.view(batch_size * seqlen, emb_size)
@@ -95,7 +96,7 @@ class FFNN(nn.Module):
         outputs = self.ffnn(inputs)
 
         if inputs.dim() == 3:
-            outputs = outputs.view(batch_size, seqlen, -1)
+            outputs = outputs.view(original_shape[0], original_shape[1], -1)
 
         return outputs
 
