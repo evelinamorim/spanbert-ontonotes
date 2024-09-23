@@ -474,6 +474,9 @@ class SpanBERTCorefModel(nn.Module):
 
         top_antecedent_scores = torch.cat([dummy_scores, top_antecedent_scores], dim=1)  # [k, c + 1]
 
+        top_antecedent_cluster_ids = torch.gather(top_span_cluster_ids, 0, top_antecedents)  # [k, c]
+        top_antecedent_cluster_ids += torch.log(top_antecedents_mask.float()).int()  # [k, c]
+
         return sequence_output
 
 
