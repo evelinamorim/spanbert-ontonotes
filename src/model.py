@@ -143,13 +143,6 @@ class SpanBERTCorefModel(nn.Module):
 
         self.segment_distance_layer = SpanBERTCorefModel.SegmentLayer(config.MAX_TRAINING_SENTENCES, config.FEATURE_SIZE)
 
-        self.slow_antecedent_ffnn = FFNN(
-            input_size=self.bert.config.hidden_size * 6 + self.config.FEATURE_SIZE * 3,  # Adjust input size as needed
-            num_hidden_layers=self.config.FFNN_DEPTH,
-            hidden_size=self.config.FFNN_SIZE,
-            output_size=1,
-            dropout=self.config.DROPOUT_RATE
-        )
 
     def projection(self, inputs, output_size):
 
@@ -297,13 +290,20 @@ class SpanBERTCorefModel(nn.Module):
 
         pair_emb = torch.cat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], dim=2)  # [k, c, emb]
 
-        #slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
-        #slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
-        #with tf.variable_scope("slow_antecedent_scores"):
-        #    slow_antecedent_scores = ffnn(pair_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1,
-        #                                       self.dropout)  # [k, c, 1]
-        #slow_antecedent_scores = tf.squeeze(slow_antecedent_scores, 2)  # [k, c]
-        #return slow_antecedent_scores  # [k, c]
+        input_size = pair_emb.size(2)
+
+        self.slow_antecedent_ffnn = FFNN(
+            input_size=input_size,
+            num_hidden_layers=self.config.FFNN_DEPTH,
+            hidden_size=self.config.FFNN_SIZE,
+            output_size=1,
+            dropout=self.config.DROPOUT_RATE
+        ).to(device)
+
+        slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
+        slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
+
+        return slow_antecedent_scores  # [k, c]
 
     def __get_fast_antecedent_scores(self, top_span_emb):
 
