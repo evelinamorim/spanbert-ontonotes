@@ -400,6 +400,7 @@ class SpanBERTCorefModel(nn.Module):
                       torch.floor(torch.tensor(num_words, dtype=torch.float32) * self.config.TOP_SPAN_RATIO).to(
                           torch.int32)).to(device)
         c = torch.min(torch.tensor(self.config.MAX_TOP_ANTECEDENTS), k).to(device)
+        print("-->", k, c, num_words)
 
         # pull from beam
         top_span_indices = self.extract_spans(candidate_mention_scores.unsqueeze(0),
