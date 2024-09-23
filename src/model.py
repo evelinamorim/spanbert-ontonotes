@@ -287,6 +287,7 @@ class SpanBERTCorefModel(nn.Module):
             segment_distance_emb = self.segment_distance_layer(segment_distance)  # [k, c, emb]
             feature_emb_list.append(segment_distance_emb)
 
+        feature_emb_list = [tensor.to(device) for tensor in feature_emb_list]
         feature_emb = torch.cat(feature_emb_list, dim=2)  # [k, c, emb]
         feature_emb = F.dropout(feature_emb, p=self.config.DROPOUT_RATE, training=self.training)  # [k, c, emb]
 
