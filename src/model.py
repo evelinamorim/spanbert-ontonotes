@@ -297,6 +297,8 @@ class SpanBERTCorefModel(nn.Module):
 
         pair_emb = torch.cat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], dim=2)  # [k, c, emb]
 
+        #slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
+        #slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
         #with tf.variable_scope("slow_antecedent_scores"):
         #    slow_antecedent_scores = ffnn(pair_emb, self.config["ffnn_depth"], self.config["ffnn_size"], 1,
         #                                       self.dropout)  # [k, c, 1]
