@@ -301,6 +301,7 @@ class SpanBERTCorefModel(nn.Module):
         ).to(device)
 
         slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
+        print("-->", slow_antecedent_scores.shape)
         slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
 
         return slow_antecedent_scores  # [k, c]
@@ -400,7 +401,6 @@ class SpanBERTCorefModel(nn.Module):
                       torch.floor(torch.tensor(num_words, dtype=torch.float32) * self.config.TOP_SPAN_RATIO).to(
                           torch.int32)).to(device)
         c = torch.min(torch.tensor(self.config.MAX_TOP_ANTECEDENTS), k).to(device)
-        print("-->", k, c, num_words)
 
         # pull from beam
         top_span_indices = self.extract_spans(candidate_mention_scores.unsqueeze(0),
