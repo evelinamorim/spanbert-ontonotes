@@ -89,13 +89,14 @@ class FFNN(nn.Module):
             raise ValueError(f"FFNN with rank {inputs.dim()} not supported")
 
         original_shape = inputs.shape
-        if inputs.dim() == 3:
+        original_dim = inputs.dim()
+        if original_dim == 3:
             batch_size, seqlen, emb_size = inputs.size()
             inputs = inputs.view(batch_size * seqlen, emb_size)
 
         outputs = self.ffnn(inputs)
 
-        if inputs.dim() == 3:
+        if original_dim == 3:
             outputs = outputs.view(original_shape[0], original_shape[1], -1)
 
         return outputs
@@ -302,6 +303,7 @@ class SpanBERTCorefModel(nn.Module):
         ).to(device)
 
         slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
+        print("-->", slow_antecedent_scores.shape)
         slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
 
         return slow_antecedent_scores  # [k, c]
