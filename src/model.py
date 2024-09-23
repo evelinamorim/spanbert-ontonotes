@@ -476,6 +476,11 @@ class SpanBERTCorefModel(nn.Module):
 
         top_antecedent_cluster_ids = top_span_cluster_ids[top_antecedents]  # [k, c]
         top_antecedent_cluster_ids += torch.log(top_antecedents_mask.float()).int()  # [k, c]
+        same_cluster_indicator = torch.eq(top_antecedent_cluster_ids, top_span_cluster_ids.unsqueeze(1))  # [k, c]
+        non_dummy_indicator = top_span_cluster_ids.unsqueeze(1) > 0  # [k, 1]
+        pairwise_labels = torch.logical_and(same_cluster_indicator, non_dummy_indicator)  # [k, c]
+        dummy_labels = torch.logical_not(torch.any(pairwise_labels, dim=1, keepdim=True))  # [k, 1]
+        top_antecedent_labels = torch.cat([dummy_labels, pairwise_labels], dim=1)  # [k, c + 1]
 
         return sequence_output
 
