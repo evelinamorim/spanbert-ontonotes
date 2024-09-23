@@ -40,7 +40,7 @@ class ExtractSpans(nn.Module):
                 end = candidate_ends[l, i].item()
                 for j in range(start, end + 1):
                     if (j in start_to_latest_end and j > start and start_to_latest_end[j] > end) or \
-                       (j in end_to_earliest_start and j < end and end_to_earliest_start[j] < start):
+                            (j in end_to_earliest_start and j < end and end_to_earliest_start[j] < start):
                         any_crossing = True
                         break
                 if not any_crossing:
@@ -101,8 +101,8 @@ class FFNN(nn.Module):
 
         return outputs
 
-class SpanBERTCorefModel(nn.Module):
 
+class SpanBERTCorefModel(nn.Module):
     ## this class is to represent the segment distance embedding
     class SegmentLayer(nn.Module):
         def __init__(self, max_training_sentences, feature_size):
@@ -112,7 +112,7 @@ class SpanBERTCorefModel(nn.Module):
             )
 
         def forward(self, segment_distance):
-            return  self.segment_distance_emb[segment_distance]
+            return self.segment_distance_emb[segment_distance]
 
     def __init__(self, config):
 
@@ -143,8 +143,8 @@ class SpanBERTCorefModel(nn.Module):
         self.max_span_length = config.MAX_TRAIN_LEN
         self.max_span_length = config.MAX_SPAN_WIDTH
 
-        self.segment_distance_layer = SpanBERTCorefModel.SegmentLayer(config.MAX_TRAINING_SENTENCES, config.FEATURE_SIZE)
-
+        self.segment_distance_layer = SpanBERTCorefModel.SegmentLayer(config.MAX_TRAINING_SENTENCES,
+                                                                      config.FEATURE_SIZE)
 
     def projection(self, inputs, output_size):
 
@@ -158,7 +158,6 @@ class SpanBERTCorefModel(nn.Module):
             nn.ReLU()
         )
 
-
         return ffnn(inputs)
 
     def __prepare_spans_candidates(self, sentence_map, num_words):
@@ -166,7 +165,8 @@ class SpanBERTCorefModel(nn.Module):
         device = sentence_map.device
 
         flattened_sentence_indices = sentence_map
-        candidate_starts = torch.arange(num_words).unsqueeze(1).repeat(1, self.max_span_length)  # [num_words, max_span_width]
+        candidate_starts = torch.arange(num_words).unsqueeze(1).repeat(1,
+                                                                       self.max_span_length)  # [num_words, max_span_width]
         candidate_ends = candidate_starts + torch.arange(self.max_span_length).unsqueeze(
             0)  # [num_words, max_span_width]
 
@@ -180,7 +180,7 @@ class SpanBERTCorefModel(nn.Module):
             candidate_ends_clipped]  # [num_words, max_span_width]
 
         candidate_mask = (candidate_ends < num_words) & (
-                    candidate_start_sentence_indices == candidate_end_sentence_indices)  # [num_words, max_span_width]
+                candidate_start_sentence_indices == candidate_end_sentence_indices)  # [num_words, max_span_width]
         flattened_candidate_mask = candidate_mask.view(-1)  # [num_words * max_span_width]
 
         # Flatten the tensors
@@ -265,7 +265,7 @@ class SpanBERTCorefModel(nn.Module):
 
             same_speaker_emb = nn.Parameter(torch.randn(2, self.config.FEATURE_SIZE) * 0.02).to(device)
 
-            speaker_pair_emb = same_speaker_emb[same_speaker.long()] # [k, c, emb]
+            speaker_pair_emb = same_speaker_emb[same_speaker.long()]  # [k, c, emb]
             feature_emb_list.append(speaker_pair_emb)
 
             tiled_genre_emb = genre_emb.unsqueeze(0).unsqueeze(0).repeat([k, c, 1])  # [k, c, emb]
@@ -303,14 +303,14 @@ class SpanBERTCorefModel(nn.Module):
         ).to(device)
 
         slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
-        print("-->", slow_antecedent_scores.shape)
         slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
 
         return slow_antecedent_scores  # [k, c]
 
     def __get_fast_antecedent_scores(self, top_span_emb):
 
-        source_top_span_emb = F.dropout(self.projection(top_span_emb, top_span_emb.size(-1)), p=self.config.DROPOUT_RATE,
+        source_top_span_emb = F.dropout(self.projection(top_span_emb, top_span_emb.size(-1)),
+                                        p=self.config.DROPOUT_RATE,
                                         training=self.training)  # [k, emb]
 
         # Target Span Embeddings with Dropout
@@ -345,9 +345,9 @@ class SpanBERTCorefModel(nn.Module):
 
         if self.config.USE_PRIOR:
             antecedent_distance_buckets = self.__bucket_distance(antecedent_offsets)
-            distance_emb_dropout = F.dropout(self.antecedent_distance_emb, p=self.config.DROPOUT_RATE, training=is_training)
-            distance_scores = self.projection(distance_emb_dropout,1).squeeze(1)
-
+            distance_emb_dropout = F.dropout(self.antecedent_distance_emb, p=self.config.DROPOUT_RATE,
+                                             training=is_training)
+            distance_scores = self.projection(distance_emb_dropout, 1).squeeze(1)
 
             antecedent_distance_scores = distance_scores[antecedent_distance_buckets.long()]
             #antecedent_distance_scores = torch.gather(distance_scores.squeeze(1), 0,
@@ -366,7 +366,8 @@ class SpanBERTCorefModel(nn.Module):
 
         return top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets
 
-    def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map):
+    def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends,
+                cluster_ids, sentence_map):
         # Pass the document through the transformer encoder
         device = input_ids.device
         transformer_outputs = self.bert(input_ids=input_ids,
@@ -377,21 +378,22 @@ class SpanBERTCorefModel(nn.Module):
         # Extract the hidden states from the last layer of the transformer
         sequence_output = transformer_outputs.last_hidden_state
         sequence_output = self.__flatten_emb_by_sentence(sequence_output, input_mask)
-        num_words = sequence_output.size(0) # num_owrds sempre da 128, mas pode ter menos palavras e ai como faz?
+        num_words = sequence_output.size(0)  # num_owrds sempre da 128, mas pode ter menos palavras e ai como faz?
 
         # You can now compute span representations (gx and gy) and feed them into FFNNs
 
         # first: prepare candidate spans for extraction, ensuring they are valid and
         #  fall within sentence boundaries
-        candidate_starts, candidate_ends, candidate_sentence_indices = self.__prepare_spans_candidates(sentence_map,\
+        candidate_starts, candidate_ends, candidate_sentence_indices = self.__prepare_spans_candidates(sentence_map, \
                                                                                                        num_words)
 
         candidate_cluster_ids = self.__get_candidate_labels(candidate_starts, candidate_ends, gold_starts, gold_ends,
-                                                          cluster_ids)  # [num_candidates]
+                                                            cluster_ids)  # [num_candidates]
         candidate_span_emb = self.__get_span_emb(sequence_output, sequence_output, candidate_starts,
-                                               candidate_ends, num_words)  # [num_candidates, emb]
+                                                 candidate_ends, num_words)  # [num_candidates, emb]
 
-        embedding_size = candidate_span_emb.size(1)  # span_emb shape is [k, embedding_dim], so embedding_dim = span_emb.size(1)
+        embedding_size = candidate_span_emb.size(
+            1)  # span_emb shape is [k, embedding_dim], so embedding_dim = span_emb.size(1)
         model_mention_scorer = MentionScoreCalculator(self.config, embedding_size)
         model_mention_scorer = model_mention_scorer.to(device)
 
@@ -416,7 +418,8 @@ class SpanBERTCorefModel(nn.Module):
         top_span_starts = torch.gather(candidate_starts, 0, top_span_indices.long())  # [k]
         top_span_ends = torch.gather(candidate_ends, 0, top_span_indices.long())  # [k]
         top_span_emb = torch.gather(candidate_span_emb, 0,
-                                    top_span_indices.unsqueeze(1).expand(-1, candidate_span_emb.size(1)).long())  # [k, emb]
+                                    top_span_indices.unsqueeze(1).expand(-1,
+                                                                         candidate_span_emb.size(1)).long())  # [k, emb]
         top_span_cluster_ids = torch.gather(candidate_cluster_ids, 0, top_span_indices.long())  # [k]
         top_span_mention_scores = torch.gather(candidate_mention_scores, 0, top_span_indices.long())  # [k]
 
@@ -447,12 +450,31 @@ class SpanBERTCorefModel(nn.Module):
         if self.config.FINE_GRAINED:
             for i in range(self.config.COREF_DEPTH):
                 if i > 0:
-                    top_antecedent_emb = top_span_emb[top_antecedents] # [k, c, emb]
-                    top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb,top_antecedents, top_antecedent_emb, top_antecedent_offsets, top_span_speaker_ids, genre_emb, is_training, segment_distance) # [k, c]
+                    top_antecedent_emb = top_span_emb[top_antecedents]  # [k, c, emb]
+                    top_antecedent_scores = top_fast_antecedent_scores + self.get_slow_antecedent_scores(top_span_emb,
+                                                                                                         top_antecedents,
+                                                                                                         top_antecedent_emb,
+                                                                                                         top_antecedent_offsets,
+                                                                                                         top_span_speaker_ids,
+                                                                                                         genre_emb,
+                                                                                                         is_training,
+                                                                                                         segment_distance)  # [k, c]
+                    top_antecedent_weights = F.softmax(torch.cat([dummy_scores, top_antecedent_scores], dim=1),
+                                                       dim=1)  # [k, c + 1]
+                    top_antecedent_emb = torch.cat([top_span_emb.unsqueeze(1), top_antecedent_emb],
+                                                   dim=1)  # [k, c + 1, emb]
+                    attended_span_emb = torch.sum(top_antecedent_weights.unsqueeze(2) * top_antecedent_emb,
+                                                  dim=1)  # [k, emb]
+
+                    f = torch.sigmoid(self.projection(torch.cat([top_span_emb, attended_span_emb], dim=1),
+                                                      top_span_emb.size(-1)))  # [k, emb]
+                    top_span_emb = f * attended_span_emb + (1 - f) * top_span_emb  # [k, emb]
+        else:
+            top_antecedent_scores = top_fast_antecedent_scores
+
+        top_antecedent_scores = torch.cat([dummy_scores, top_antecedent_scores], dim=1)  # [k, c + 1]
 
         return sequence_output
-
-
 
 
 class SpanEmbeddingModule(nn.Module):
@@ -462,8 +484,8 @@ class SpanEmbeddingModule(nn.Module):
         self.dropout = nn.Dropout(p=config.DROPOUT_RATE)
 
         self.span_width_embeddings = nn.Parameter(
-                torch.randn(config.MAX_SPAN_WIDTH, config.FEATURE_SIZE) * 0.02
-            )
+            torch.randn(config.MAX_SPAN_WIDTH, config.FEATURE_SIZE) * 0.02
+        )
 
     def forward(self, span_width):
         # Calculate span width index (0-based)
@@ -494,17 +516,16 @@ class MentionWordScorer(nn.Module):
         num_words = encoded_doc.size(0)  # T: Number of words in the document
         num_c = span_starts.size(0)  # NC: Number of candidate spans
 
-
         # Create a document range tensor [T] and tile it for each candidate span [num_c, T]
         device = encoded_doc.device
         doc_range = torch.arange(0, num_words).unsqueeze(0).repeat(num_c, 1).to(device)  # [num_c, T]
         span_starts = span_starts.to(device)
         span_ends = span_ends.to(device)
-        self.word_attn_proj = self.word_attn_proj.to(device) 
+        self.word_attn_proj = self.word_attn_proj.to(device)
 
         # Create mention mask: True for words within the span, False otherwise
         mention_mask = (doc_range >= span_starts.unsqueeze(1)) & (doc_range <= span_ends.unsqueeze(1))  # [num_c, T]
-        mention_mask = mention_mask.float().to(device) 
+        mention_mask = mention_mask.float().to(device)
 
         # Word attention using a linear projection on encoded_doc [T, emb]
         word_attn = self.word_attn_proj(encoded_doc).squeeze(1).to(device)  # [T]
@@ -512,9 +533,11 @@ class MentionWordScorer(nn.Module):
         # Apply mask and softmax for attention scores
         # Convert mention_mask to float, take log for stability
         mention_mask = mention_mask.float()  # [num_c, T]
-        mention_word_attn = F.softmax(torch.log(mention_mask + 1e-10).to(device) + word_attn.unsqueeze(0), dim=-1)  # [num_c, T]
+        mention_word_attn = F.softmax(torch.log(mention_mask + 1e-10).to(device) + word_attn.unsqueeze(0),
+                                      dim=-1)  # [num_c, T]
 
         return mention_word_attn
+
 
 class MentionScoreCalculator(nn.Module):
     def __init__(self, config, embedding_dim):
@@ -548,7 +571,7 @@ class MentionScoreCalculator(nn.Module):
 
     def forward(self, span_emb, span_starts, span_ends):
         # Compute span scores
-       
+
         span_scores = self.ffnn(self.dropout(span_emb))
 
         if self.config.USE_PRIOR:
