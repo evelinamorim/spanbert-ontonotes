@@ -366,6 +366,12 @@ class SpanBERTCorefModel(nn.Module):
 
         return top_antecedents, top_antecedents_mask, top_fast_antecedent_scores, top_antecedent_offsets
 
+    def softmax_loss(self, antecedent_scores, antecedent_labels):
+        gold_scores = antecedent_scores + torch.log(antecedent_labels.float())  # [k, max_ant + 1]
+        marginalized_gold_scores = torch.logsumexp(gold_scores, dim=1)  # [k]
+        log_norm = torch.logsumexp(antecedent_scores, dim=1)  # [k]
+        return log_norm - marginalized_gold_scores  # [k]
+
     def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends,
                 cluster_ids, sentence_map):
         # Pass the document through the transformer encoder
@@ -481,8 +487,12 @@ class SpanBERTCorefModel(nn.Module):
         pairwise_labels = torch.logical_and(same_cluster_indicator, non_dummy_indicator)  # [k, c]
         dummy_labels = torch.logical_not(torch.any(pairwise_labels, dim=1, keepdim=True))  # [k, 1]
         top_antecedent_labels = torch.cat([dummy_labels, pairwise_labels], dim=1)  # [k, c + 1]
+        loss = self.softmax_loss(top_antecedent_scores, top_antecedent_labels)  # [k]
 
-        return sequence_output
+        loss = torch.sum(loss)  # []
+
+        return [candidate_starts, candidate_ends, candidate_mention_scores, top_span_starts, top_span_ends, top_antecedents, top_antecedent_scores], loss
+
 
 
 class SpanEmbeddingModule(nn.Module):
