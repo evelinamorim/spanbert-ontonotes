@@ -101,6 +101,8 @@ class FFNN(nn.Module):
             inputs = inputs.view(batch_size * seqlen, emb_size)
 
         self.ffnn.to(inputs.device)
+        print("The shape of the first linear layer of FFNN: ", self.ffnn[0].in_features)
+        print("The inputs shape to FFNN", inputs.shape)
         outputs = self.ffnn(inputs)
 
         if original_dim == 3:
