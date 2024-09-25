@@ -60,8 +60,11 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             torch.cuda.empty_cache()
 
+        print(f"Loss: {loss.item()}")
         if idx == 10:
+            torch.save(model.state_dict(), os.path.join(config.CHECKPOINT_PATH,f"model_checkpoint_{idx}.pt"))
             break
+
 
 
 

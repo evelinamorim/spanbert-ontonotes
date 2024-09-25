@@ -1,5 +1,6 @@
 class Config:
     MODEL_NAME = "SpanBERT/spanbert-base-cased"
+    CHECKPOINT_PATH = "checkpoint/"
     MAX_TRAIN_LEN = 128
     MAX_EVAL_LEN = 1024
     LEARNING_RATE = 1e-5
