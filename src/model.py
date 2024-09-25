@@ -145,6 +145,7 @@ class SpanBERTCorefModel(nn.Module):
 
         self.segment_distance_layer = SpanBERTCorefModel.SegmentLayer(config.MAX_TRAINING_SENTENCES,
                                                                       config.FEATURE_SIZE)
+        self.slow_antecedent_ffnn = None
 
     def projection(self, inputs, output_size):
 
