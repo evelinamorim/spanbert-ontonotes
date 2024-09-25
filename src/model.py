@@ -67,26 +67,32 @@ class ExtractSpans(nn.Module):
 
 
 class FFNN(nn.Module):
-    def __init__(self, input_size, num_hidden_layers, hidden_size, output_size, dropout):
+    def __init__(self, num_hidden_layers, hidden_size, output_size, dropout):
         super(FFNN, self).__init__()
-        layers = []
 
-        # Add hidden layers
-        for _ in range(num_hidden_layers):
-            layers.append(nn.Linear(input_size, hidden_size))
-            layers.append(nn.ReLU())
-            if dropout is not None:
-                layers.append(nn.Dropout(dropout))
-            input_size = hidden_size
-
-        # Add output layer
-        layers.append(nn.Linear(input_size, output_size))
-
-        self.ffnn = nn.Sequential(*layers)
+        self.num_hidden_layers = num_hidden_layers
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.dropout = dropout
+        self.ffnn = None
 
     def forward(self, inputs):
         if inputs.dim() > 3:
             raise ValueError(f"FFNN with rank {inputs.dim()} not supported")
+
+        if self.ffnn is None:
+            input_size = inputs.size(-1)
+            layers = []
+
+            for _ in range(self.num_hidden_layers):
+                layers.append(nn.Linear(input_size, self.hidden_size))
+                layers.append(nn.ReLU())
+                if self.dropout is not None:
+                    layers.append(nn.Dropout(self.dropout))
+                input_size = self.hidden_size
+
+            layers.append(nn.Linear(input_size, self.output_size))
+            self.ffnn = nn.Sequential(*layers)
 
         original_shape = inputs.shape
         original_dim = inputs.dim()
@@ -94,6 +100,7 @@ class FFNN(nn.Module):
             batch_size, seqlen, emb_size = inputs.size()
             inputs = inputs.view(batch_size * seqlen, emb_size)
 
+        self.ffnn.to(inputs.device)
         outputs = self.ffnn(inputs)
 
         if original_dim == 3:
@@ -145,7 +152,12 @@ class SpanBERTCorefModel(nn.Module):
 
         self.segment_distance_layer = SpanBERTCorefModel.SegmentLayer(config.MAX_TRAINING_SENTENCES,
                                                                       config.FEATURE_SIZE)
-        self.slow_antecedent_ffnn = None
+        self.slow_antecedent_ffnn = FFNN(
+                num_hidden_layers=self.config.FFNN_DEPTH,
+                hidden_size=self.config.FFNN_SIZE,
+                output_size=1,
+                dropout=self.config.DROPOUT_RATE
+            )
 
     def projection(self, inputs, output_size):
 
@@ -294,14 +306,6 @@ class SpanBERTCorefModel(nn.Module):
         pair_emb = torch.cat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], dim=2)  # [k, c, emb]
 
         input_size = pair_emb.size(2)
-        if self.slow_antecedent_ffnn is None:
-            self.slow_antecedent_ffnn = FFNN(
-                input_size=input_size,
-                num_hidden_layers=self.config.FFNN_DEPTH,
-                hidden_size=self.config.FFNN_SIZE,
-                output_size=1,
-                dropout=self.config.DROPOUT_RATE
-            ).to(device)
 
         slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
         slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
