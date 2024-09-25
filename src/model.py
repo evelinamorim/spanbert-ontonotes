@@ -294,14 +294,14 @@ class SpanBERTCorefModel(nn.Module):
         pair_emb = torch.cat([target_emb, top_antecedent_emb, similarity_emb, feature_emb], dim=2)  # [k, c, emb]
 
         input_size = pair_emb.size(2)
-
-        self.slow_antecedent_ffnn = FFNN(
-            input_size=input_size,
-            num_hidden_layers=self.config.FFNN_DEPTH,
-            hidden_size=self.config.FFNN_SIZE,
-            output_size=1,
-            dropout=self.config.DROPOUT_RATE
-        ).to(device)
+        if self.slow_antecedent_ffnn is None:
+            self.slow_antecedent_ffnn = FFNN(
+                input_size=input_size,
+                num_hidden_layers=self.config.FFNN_DEPTH,
+                hidden_size=self.config.FFNN_SIZE,
+                output_size=1,
+                dropout=self.config.DROPOUT_RATE
+            ).to(device)
 
         slow_antecedent_scores = self.slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
         slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
