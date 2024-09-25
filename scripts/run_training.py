@@ -28,6 +28,10 @@ if __name__ == '__main__':
     model = SpanBERTCorefModel(config)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
+
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
+
     model.train()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
