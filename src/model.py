@@ -229,6 +229,8 @@ class SpanBERTCorefModel(nn.Module):
 
         same_span = same_start & same_end
         true_indices = torch.nonzero(same_span).squeeze()
+        import pdb
+        pdb.set_trace()
 
         candidate_labels = torch.matmul(labels.unsqueeze(0).to(torch.float32), same_span.to(torch.float32))
 
@@ -379,11 +381,11 @@ class SpanBERTCorefModel(nn.Module):
                                         attention_mask=input_mask)
 
         self.extract_spans = self.extract_spans.to(device)
-
+        
         # Extract the hidden states from the last layer of the transformer
         sequence_output = transformer_outputs.last_hidden_state
         sequence_output = self.__flatten_emb_by_sentence(sequence_output, input_mask)
-        num_words = sequence_output.size(0)  # num_owrds sempre da 128, mas pode ter menos palavras e ai como faz?
+        num_words = sequence_output.size(0) 
 
         # You can now compute span representations (gx and gy) and feed them into FFNNs
 
