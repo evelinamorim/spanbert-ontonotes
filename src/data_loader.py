@@ -67,7 +67,7 @@ class CorefDataset(torch.utils.data.Dataset):
         starts = torch.tensor([m[0] for m in mentions])
         ends = torch.tensor([m[1] for m in mentions])
         return starts, ends
-    def __sentence_to_tensor(self, item, is_training=True):
+    def sentence_to_tensor(self, item, is_training=True):
 
         clusters = item["clusters"]
         gold_mentions = sorted(tuple(m) for m in utils.flat_lists(clusters))
@@ -175,7 +175,7 @@ class CorefDataset(torch.utils.data.Dataset):
                 doc_id = re.sub(r'_\d+$', '', doc_key)
 
                 ###
-                instance = self.__sentence_to_tensor(item)
+                instance = self.sentence_to_tensor(item)
                 # Store the tensorized instance in self.data
                 if isinstance(instance, list):  # If multiple tensorized chunks (due to truncation)
                     self.data.extend(instance)
