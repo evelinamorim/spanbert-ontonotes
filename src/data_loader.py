@@ -22,7 +22,8 @@ class CorefDataset(torch.utils.data.Dataset):
         self.genres = {g: i for i, g in enumerate(config.GENRES)}
 
         self.data = []
-        self.load_data()
+        if split != "adhoc":
+            self.load_data()
 
 
     def __len__(self):

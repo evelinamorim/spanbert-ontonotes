@@ -6,8 +6,10 @@ from transformers import AutoTokenizer
 
 from pathlib import Path
 sys.path.append(str(Path(__file__).absolute().parent.parent))
+
 from src.config import Config
 from src.model import SpanBERTCorefModel
+from src.data_loader import CorefDataset
 
 # Initialize the config and model
 config = Config()
@@ -23,22 +25,26 @@ model.eval()
 
 
 tokenizer = AutoTokenizer.from_pretrained(config.MODEL_NAME)
+dataset = CorefDataset(tokenizer, config, "adhoc")
 
-sent = "The president ate his dinner in the oval room."
-inputs = tokenizer(sent, return_tensors="pt")
+sent = ["[CLS]","the", "president","ate","his","dinner","in","the","oval", "room",".","[SEP]"]
+subtoken_map = []
+word_idx = -1
+for word in sent:
+    subtokens = tokenizer.tokenize(word)
+    word_idx += 1
+    for sidx, subtokens in enumerate(subtokens):
+        subtoken_map.append(word_idx)
+
+item = {}
+item["doc_key"] = "bc/cctv/00/cctv_000_0"
+item["sentences"] = [[sent]]
+item["clusters"] = [[1,3]]
+item["speakers"] = ["#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1"]
+item["subtoken_map"] = subtoken_map
 
 with torch.no_grad():
-    new_inputs = {}
-    new_inputs["input_ids"] = inputs["input_ids"].to(device)
-    new_inputs["input_mask"] = inputs["attention_mask"].to(device)
-    new_inputs["text_len"] = 1
-    new_inputs["speaker_ids"] = torch.tensor([0,1])
-    new_inputs["genre"] = "bc"
-    new_inputs["is_training"] = False
-    new_inputs["gold_starts"] = torch.tensor([1,3])
-    new_inputs["gold_ends"] = torch.tensor([1,3])
-    new_inputs["cluster_ids"] = torch.tensor([1])
-    new_inputs["sentence_map"] = torch.tensor([0,0,0,0,0,0,0,0,0,0,0,0])
+    inputs = dataset.sentence_to_tensor(item)
 
     output, _ = model(**new_inputs)
     # Process the output as needed
