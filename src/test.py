@@ -47,6 +47,6 @@ item["sentence_map"] = [0,0,0,0,0,0,0,0,0,0,0,0]
 with torch.no_grad():
     inputs = dataset.sentence_to_tensor(item)
 
-    output, _ = model(**inputs)
+    output, _ = model(*inputs)
     # Process the output as needed
     print(f"Output for example {sent}: {output}")
