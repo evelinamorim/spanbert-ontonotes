@@ -229,8 +229,6 @@ class SpanBERTCorefModel(nn.Module):
 
         same_span = same_start & same_end
         true_indices = torch.nonzero(same_span).squeeze()
-        import pdb
-        pdb.set_trace()
 
         candidate_labels = torch.matmul(labels.unsqueeze(0).to(torch.float32), same_span.to(torch.float32))
 
