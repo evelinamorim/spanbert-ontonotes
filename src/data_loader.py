@@ -98,6 +98,7 @@ class CorefDataset(torch.utils.data.Dataset):
         # Process each sentence and speaker
         idx_sentence = 0
         for sentence, speaker in zip(sentences, speakers):
+
             sent_input_ids = self.tokenizer.convert_tokens_to_ids(sentence)
             sent_input_mask = [1] * len(sent_input_ids)
             sent_speaker_ids = [speaker_dict.get(s, 3) for s in speaker]

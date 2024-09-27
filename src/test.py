@@ -40,7 +40,7 @@ item = {}
 item["doc_key"] = "bc/cctv/00/cctv_000_0"
 item["sentences"] = [sent]
 item["clusters"] = [[[1,3]]]
-item["speakers"] = ["#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1"]
+item["speakers"] = [["#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1"]]
 item["subtoken_map"] = subtoken_map
 item["sentence_map"] = [0,0,0,0,0,0,0,0,0,0,0,0]
 
