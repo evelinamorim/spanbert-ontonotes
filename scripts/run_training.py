@@ -27,11 +27,11 @@ if __name__ == '__main__':
 
     model = SpanBERTCorefModel(config)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = "cpu"
+    #device = "cpu"
     model.to(device)
 
-    #if torch.cuda.device_count() > 1:
-    #    model = torch.nn.DataParallel(model)
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
 
     model.train()
 

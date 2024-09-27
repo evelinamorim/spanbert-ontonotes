@@ -175,7 +175,13 @@ class SpanBERTCorefModel(nn.Module):
 
         candidate_start_sentence_indices = flattened_sentence_indices[candidate_starts]  # [num_words, max_span_width]
         # Ensure candidate ends do not exceed the maximum word index (num_words - 1)
-        candidate_ends_clipped = torch.min(candidate_ends, torch.tensor(num_words - 1))
+
+        print("-->",num_words, candidate_ends.shape)
+        num_words_tensor = torch.tensor(num_words - 1).to(device)
+        print("-->",candidate_ends.device, num_words_tensor.device)
+
+
+        candidate_ends_clipped = torch.min(candidate_ends, num_words_tensor)
         candidate_end_sentence_indices = flattened_sentence_indices[
             candidate_ends_clipped]  # [num_words, max_span_width]
 
