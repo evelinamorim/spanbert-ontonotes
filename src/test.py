@@ -38,14 +38,15 @@ for word in sent:
 
 item = {}
 item["doc_key"] = "bc/cctv/00/cctv_000_0"
-item["sentences"] = [[sent]]
-item["clusters"] = [[1,3]]
+item["sentences"] = [sent]
+item["clusters"] = [[[1,3]]]
 item["speakers"] = ["#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1","#Speaker1"]
 item["subtoken_map"] = subtoken_map
+item["sentence_map"] = [0,0,0,0,0,0,0,0,0,0,0,0]
 
 with torch.no_grad():
     inputs = dataset.sentence_to_tensor(item)
 
-    output, _ = model(**new_inputs)
+    output, _ = model(**inputs)
     # Process the output as needed
     print(f"Output for example {sent}: {output}")
