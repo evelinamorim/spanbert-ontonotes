@@ -305,7 +305,7 @@ class SpanBERTCorefModel(nn.Module):
             hidden_size=self.config.FFNN_SIZE,
             output_size=1,
             dropout=self.config.DROPOUT_RATE
-        )
+        ).to(device)
 
         slow_antecedent_scores = slow_antecedent_ffnn(pair_emb)  # [k, c, 1]
         slow_antecedent_scores = slow_antecedent_scores.squeeze(2)  # [k, c]
