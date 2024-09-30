@@ -13,7 +13,7 @@ from src.config import Config
 from src.data_loader import CorefDataset
 from src.model import SpanBERTCorefModel
 from src.train import train
-from accelerate import Accelerator
+from accelerate import Accelerator, DistributedDataParallelKwargs
 
 import os
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
@@ -28,39 +28,39 @@ if __name__ == '__main__':
     dataloader = CorefDataset(tokenizer, config, "train")
 
     model = SpanBERTCorefModel(config)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
     scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
-    accelerator = Accelerator()
+    accelerator = Accelerator(gradient_accumulation_steps=4, mixed_precision="fp16",
+                              kwargs_handlers=DistributedDataParallelKwargs(find_unused_parameters=True))
+    device = accelerator.device
     model, optimizer, dataloader, scheduler = accelerator.prepare(model, optimizer, dataloader, scheduler)
-    model.train()
 
-    accumulation_steps = 4
+    model.train()
 
     start_time = time.time()
     # Iterate through one batch from the DataLoader
     for idx,batch in enumerate(dataloader):
-        batch = tuple(item.to(device) if torch.is_tensor(item) else item for item in batch)
-
-        #if idx % 10 == 0:
+      #if idx % 10 == 0:
         print("Batch %d from %d" % (idx, len(dataloader)))
 
         with accelerator.autocast():  # Mixed precision context
             output, loss_batch = model(*batch)
 
-            loss = loss_batch / accumulation_steps  # Scale loss
+            loss = loss_batch / accelerator.gradient_accumulation_steps  # Scale loss
 
         accelerator.backward(loss)
 
-        if (idx + 1) % accumulation_steps == 0:
+        if (idx + 1) % accelerator.gradient_accumulation_steps == 0:
             optimizer.step()
             optimizer.zero_grad()
             torch.cuda.empty_cache()
 
         print(f"Loss: {loss.item()}")
         if idx == 10:
-            torch.save(model.state_dict(), os.path.join(config.CHECKPOINT_PATH,f"model_checkpoint_{idx}.pt"))
+            #torch.save(model.state_dict(), os.path.join(config.CHECKPOINT_PATH,f"model_checkpoint_{idx}.pt"))
+            accelerator.wait_for_everyone()
+            accelerator.save_model(model, os.path.join(config.CHECKPOINT_PATH,f"model_checkpoint_{idx}.pt"))
             break
 
 
