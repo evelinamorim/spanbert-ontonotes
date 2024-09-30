@@ -16,7 +16,7 @@ from src.train import train
 from accelerate import Accelerator, DistributedDataParallelKwargs
 
 import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
 
 
 if __name__ == '__main__':
