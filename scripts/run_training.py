@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
             loss = loss_batch / accumulation_steps  # Scale loss
 
-        accelerator.backward()
+        accelerator.backward(loss)
 
         if (idx + 1) % accumulation_steps == 0:
             optimizer.step()
