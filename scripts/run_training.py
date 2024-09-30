@@ -44,6 +44,8 @@ if __name__ == '__main__':
     for idx,batch in enumerate(dataloader):
       #if idx % 10 == 0:
         print("Batch %d from %d" % (idx, len(dataloader)))
+        batch_size = batch[0].size(0)  # ou o tamanho relevante do batch
+        print(f"Batch size in device {accelerator.device}: {batch_size}\n")
 
         with accelerator.autocast():  # Mixed precision context
             output, loss_batch = model(*batch)
