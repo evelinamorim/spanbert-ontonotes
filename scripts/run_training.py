@@ -31,8 +31,9 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
     scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
+    ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     accelerator = Accelerator(gradient_accumulation_steps=4, mixed_precision="fp16",
-                              kwargs_handlers=DistributedDataParallelKwargs(find_unused_parameters=True))
+                              kwargs_handlers=[ddp_kwargs])
     device = accelerator.device
     model, optimizer, dataloader, scheduler = accelerator.prepare(model, optimizer, dataloader, scheduler)
 
