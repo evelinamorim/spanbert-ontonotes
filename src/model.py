@@ -177,7 +177,7 @@ class SpanBERTCorefModel(nn.Module):
         # Ensure candidate ends do not exceed the maximum word index (num_words - 1)
 
         print("-->",num_words, candidate_ends.shape)
-        num_words_tensor = torch.tensor(num_words - 1).to(device)
+        num_words_tensor = torch.tensor(num_words - 1).to(candidate_ends.device)
         print("-->",candidate_ends.device, num_words_tensor.device)
 
 
