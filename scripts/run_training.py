@@ -1,6 +1,7 @@
 import time
 
 import torch
+from torch.optim.lr_scheduler import StepLR
 from transformers import AutoTokenizer, AutoModel
 
 import sys
@@ -12,6 +13,7 @@ from src.config import Config
 from src.data_loader import CorefDataset
 from src.model import SpanBERTCorefModel
 from src.train import train
+from accelerate import Accelerator
 
 import os
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
@@ -27,16 +29,13 @@ if __name__ == '__main__':
 
     model = SpanBERTCorefModel(config)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #device = "cpu"
-    model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
-
+    accelerator = Accelerator()
+    model, optimizer, dataloader, scheduler = accelerator.prepare(model, optimizer, dataloader, scheduler)
     model.train()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
-    scaler = torch.cuda.amp.GradScaler()
     accumulation_steps = 4
 
     start_time = time.time()
@@ -47,17 +46,15 @@ if __name__ == '__main__':
         #if idx % 10 == 0:
         print("Batch %d from %d" % (idx, len(dataloader)))
 
-        optimizer.zero_grad()
-        with torch.cuda.amp.autocast():  # Mixed precision context
+        with accelerator.autocast():  # Mixed precision context
             output, loss_batch = model(*batch)
 
             loss = loss_batch / accumulation_steps  # Scale loss
 
-        scaler.scale(loss).backward()
+        accelerator.backward()
 
         if (idx + 1) % accumulation_steps == 0:
-            scaler.step(optimizer)
-            scaler.update()
+            optimizer.step()
             optimizer.zero_grad()
             torch.cuda.empty_cache()
 

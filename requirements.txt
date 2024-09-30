@@ -2,3 +2,4 @@ sentencepiece
 torch
 transformers
 datasets
+accelerate
