@@ -16,12 +16,15 @@ import torch.nn.functional as F
 def pad_to_max_len(tensor_list, max_len, padding_value=0):
     padded_list = []
     for tensor in tensor_list:
+
         if tensor.size(0) < max_len:
-            padding = (0, max_len - tensor.size(0))
+            padding = (0, 0, 0, max_len - tensor.size(0)) if tensor.dim() == 2 else (0, max_len - tensor.size(0))
             padded_tensor = F.pad(tensor, padding, value=padding_value)
         else:
             padded_tensor = tensor[:max_len]
         padded_list.append(padded_tensor)
+
+    return torch.stack(padded_list)
 
 def collate_fn(batch):
 
