@@ -31,3 +31,7 @@ class Config:
 
     FINE_GRAINED = True # copied from https://github.com/mandarjoshi90/coref
     COREF_DEPTH = 2 # copied from https://github.com/mandarjoshi90/coref
+
+    MAX_NUM_SENTENCES = 50
+    MAX_NUM_CLUSTERS = 530
+    MAX_NUM_WORDS = 5000

@@ -9,7 +9,31 @@ from torch.utils.data import DataLoader
 import torch
 
 from src import utils
+from src.config import Config
 
+from torch.nn.utils.rnn import pad_sequence
+
+
+def collate_fn(batch):
+
+    config = Config()
+    input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map = zip(
+        *batch)
+
+    input_ids_padded = pad_sequence(input_ids, batch_first=True, padding_value=0, max_len=config.MAX_NUM_SENTENCES)
+    input_mask_padded = pad_sequence(input_mask, batch_first=True, padding_value=0, max_len=config.MAX_NUM_SENTENCES)
+    text_len_padded = pad_sequence(text_len, batch_first=True, padding_value=0, max_len=config.MAX_NUM_SENTENCES)
+    speaker_ids_padded = pad_sequence(speaker_ids, batch_first=True, padding_value=0, max_len=config.MAX_NUM_SENTENCES)
+
+    genre_tensor = torch.tensor(genre)
+
+    gold_starts_padded = pad_sequence(gold_starts, batch_first=True, padding_value=0, max_len=config.MAX_NUM_CLUSTERS)
+    gold_ends_padded = pad_sequence(gold_ends, batch_first=True, padding_value=0, max_len=config.MAX_NUM_CLUSTERS)
+    cluster_ids_padded = pad_sequence(cluster_ids, batch_first=True, padding_value=0, max_len=config.MAX_NUM_CLUSTERS)
+
+    sentence_map_padded = pad_sequence(sentence_map, batch_first=True, padding_value=0, max_len=config.MAX_NUM_WORDS)
+
+    return (input_ids_padded, input_mask_padded, text_len_padded, speaker_ids_padded, genre_tensor, gold_starts_padded, gold_ends_padded, cluster_ids_padded, sentence_map_padded)
 
 class CorefDataset(torch.utils.data.Dataset):
     def __init__(self, tokenizer, config, split):
