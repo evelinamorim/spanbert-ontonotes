@@ -29,26 +29,26 @@ if __name__ == '__main__':
     mydataset = CorefDataset(tokenizer, config, "train")
 
     train_dataloader = DataLoader(mydataset, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=4, collate_fn=collate_fn)
-    #
-    # model = SpanBERTCorefModel(config)
-    # optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
-    # scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
-    #
-    # ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
-    # accelerator = Accelerator(gradient_accumulation_steps=4, mixed_precision="fp16",
-    #                           kwargs_handlers=[ddp_kwargs])
-    # device = accelerator.device
-    # model, optimizer, dataloader, scheduler = accelerator.prepare(model, optimizer, train_dataloader, scheduler)
-    #
-    # model.train()
-    #
-    # start_time = time.time()
+    
+    model = SpanBERTCorefModel(config)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
+    
+    ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
+    accelerator = Accelerator(gradient_accumulation_steps=4, mixed_precision="fp16",
+                              kwargs_handlers=[ddp_kwargs])
+    device = accelerator.device
+    model, optimizer, dataloader, scheduler = accelerator.prepare(model, optimizer, train_dataloader, scheduler)
+    
+    model.train()
+    
+    start_time = time.time()
     # # Iterate through one batch from the DataLoader
-    # for idx, batch in enumerate(train_dataloader):
+    for idx, batch in enumerate(train_dataloader):
     #     #if idx % 10 == 0:
-    #     print("Batch %d from %d" % (idx, len(train_dataloader)))
-    #     batch_size = batch[0].size(0)  # ou o tamanho relevante do batch
-    #     print(f"Batch size in device {accelerator.device}: {batch_size}\n")
+         print("Batch %d from %d" % (idx, len(train_dataloader)))
+         batch_size = batch[0].size(0)  # ou o tamanho relevante do batch
+         print(f"Batch size in device {accelerator.device}: {batch_size}\n")
     #
     #     with accelerator.autocast():  # Mixed precision context
     #         output, loss_batch = model(*batch)
