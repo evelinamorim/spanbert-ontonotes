@@ -35,3 +35,5 @@ class Config:
     MAX_NUM_SENTENCES = 50
     MAX_NUM_CLUSTERS = 530
     MAX_NUM_WORDS = 5000
+
+    SPLIT = "train"

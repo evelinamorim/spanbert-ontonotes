@@ -377,9 +377,11 @@ class SpanBERTCorefModel(nn.Module):
         log_norm = torch.logsumexp(antecedent_scores, dim=1)  # [k]
         return log_norm - marginalized_gold_scores  # [k]
 
-    def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends,
+    def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, gold_starts, gold_ends,
                 cluster_ids, sentence_map):
-        # Pass the document through the transformer encoder
+
+        is_training = True if self.config.SPLIT == "train" else False
+
         device = input_ids.device
         transformer_outputs = self.bert(input_ids=input_ids,
                                         attention_mask=input_mask)
