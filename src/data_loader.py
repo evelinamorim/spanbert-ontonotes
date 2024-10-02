@@ -11,8 +11,17 @@ import torch
 from src import utils
 from src.config import Config
 
-from torch.nn.utils.rnn import pad_sequence
+import torch.nn.functional as F
 
+def pad_to_max_len(tensor_list, max_len, padding_value=0):
+    padded_list = []
+    for tensor in tensor_list:
+        if tensor.size(0) < max_len:
+            padding = (0, max_len - tensor.size(0))
+            padded_tensor = F.pad(tensor, padding, value=padding_value)
+        else:
+            padded_tensor = tensor[:max_len]
+        padded_list.append(padded_tensor)
 
 def collate_fn(batch):
 
@@ -20,18 +29,18 @@ def collate_fn(batch):
     input_ids, input_mask, text_len, speaker_ids, genre, is_training, gold_starts, gold_ends, cluster_ids, sentence_map = zip(
         *batch)
 
-    input_ids_padded = pad_sequence(input_ids, batch_first=True, padding_value=0, max_len=config.MAX_NUM_SENTENCES)
-    input_mask_padded = pad_sequence(input_mask, batch_first=True, padding_value=0, max_len=config.MAX_NUM_SENTENCES)
-    text_len_padded = pad_sequence(text_len, batch_first=True, padding_value=0, max_len=config.MAX_NUM_SENTENCES)
-    speaker_ids_padded = pad_sequence(speaker_ids, batch_first=True, padding_value=0, max_len=config.MAX_NUM_SENTENCES)
+    input_ids_padded = pad_to_max_len(input_ids, config.MAX_NUM_SENTENCES)
+    input_mask_padded = pad_to_max_len(input_mask, config.MAX_NUM_SENTENCES)
+    text_len_padded = pad_to_max_len(text_len, config.MAX_NUM_SENTENCES)
+    speaker_ids_padded = pad_to_max_len(speaker_ids,  config.MAX_NUM_SENTENCES)
 
     genre_tensor = torch.tensor(genre)
 
-    gold_starts_padded = pad_sequence(gold_starts, batch_first=True, padding_value=0, max_len=config.MAX_NUM_CLUSTERS)
-    gold_ends_padded = pad_sequence(gold_ends, batch_first=True, padding_value=0, max_len=config.MAX_NUM_CLUSTERS)
-    cluster_ids_padded = pad_sequence(cluster_ids, batch_first=True, padding_value=0, max_len=config.MAX_NUM_CLUSTERS)
+    gold_starts_padded = pad_to_max_len(gold_starts,  config.MAX_NUM_CLUSTERS)
+    gold_ends_padded = pad_to_max_len(gold_ends,  config.MAX_NUM_CLUSTERS)
+    cluster_ids_padded = pad_to_max_len(cluster_ids, config.MAX_NUM_CLUSTERS)
 
-    sentence_map_padded = pad_sequence(sentence_map, batch_first=True, padding_value=0, max_len=config.MAX_NUM_WORDS)
+    sentence_map_padded = pad_to_max_len(sentence_map,  config.MAX_NUM_WORDS)
 
     return (input_ids_padded, input_mask_padded, text_len_padded, speaker_ids_padded, genre_tensor, gold_starts_padded, gold_ends_padded, cluster_ids_padded, sentence_map_padded)
 
