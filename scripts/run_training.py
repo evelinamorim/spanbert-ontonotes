@@ -49,9 +49,9 @@ if __name__ == '__main__':
          print("Batch %d from %d" % (idx, len(train_dataloader)))
          batch_size = batch[0].size(0)  # ou o tamanho relevante do batch
          print(f"Batch size in device {accelerator.device}: {batch_size}\n")
-    #
-    #     with accelerator.autocast():  # Mixed precision context
-    #         output, loss_batch = model(*batch)
+    
+         with accelerator.autocast():  # Mixed precision context
+             output, loss_batch = model(*batch)
     #
     #         loss = loss_batch / accelerator.gradient_accumulation_steps  # Scale loss
     #
