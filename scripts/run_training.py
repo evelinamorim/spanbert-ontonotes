@@ -18,7 +18,7 @@ from src.data_loader import collate_fn
 
 import os
 
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:1024"
 
 if __name__ == '__main__':
     config = Config()
@@ -44,10 +44,15 @@ if __name__ == '__main__':
     
     start_time = time.time()
     # # Iterate through one batch from the DataLoader
-    for idx, batch in enumerate(train_dataloader):
+    for idx, batch in enumerate(dataloader):
     #     #if idx % 10 == 0:
-        print("Batch %d from %d" % (idx, len(train_dataloader)))
+        print("Batch %d from %d" % (idx, len(dataloader)))
         batch_size = batch[0].size(0)  # ou o tamanho relevante do batch
+        rank = accelerator.process_index
+        sample_id = batch[-1]
+
+        print(f"Rank {rank} - Batch {idx} - Sample IDs: {sample_id}")
+
         print(f"Batch size in device {accelerator.device}: {batch_size}\n")
     
         with accelerator.autocast():  # Mixed precision context

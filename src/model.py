@@ -378,7 +378,7 @@ class SpanBERTCorefModel(nn.Module):
         return log_norm - marginalized_gold_scores  # [k]
 
     def forward(self, input_ids, input_mask, text_len, speaker_ids, genre, gold_starts, gold_ends,
-                cluster_ids, sentence_map):
+                cluster_ids, sentence_map, batch_id):
 
         is_training = True if self.config.SPLIT == "train" else False
 

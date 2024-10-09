@@ -45,7 +45,9 @@ def collate_fn(batch):
 
     sentence_map_padded = pad_to_max_len(sentence_map,  config.MAX_NUM_WORDS)
 
-    return (input_ids_padded, input_mask_padded, text_len_padded, speaker_ids_padded, genre_tensor,  gold_starts_padded, gold_ends_padded, cluster_ids_padded, sentence_map_padded)
+    batch_id = torch.tensor([hash(tuple(input_ids))])
+
+    return (input_ids_padded, input_mask_padded, text_len_padded, speaker_ids_padded, genre_tensor,  gold_starts_padded, gold_ends_padded, cluster_ids_padded, sentence_map_padded, batch_id)
 
 class CorefDataset(torch.utils.data.Dataset):
     def __init__(self, tokenizer, config, split):
