@@ -46,12 +46,13 @@ if __name__ == '__main__':
     # # Iterate through one batch from the DataLoader
     for idx, batch in enumerate(train_dataloader):
     #     #if idx % 10 == 0:
-         print("Batch %d from %d" % (idx, len(train_dataloader)))
-         batch_size = batch[0].size(0)  # ou o tamanho relevante do batch
-         print(f"Batch size in device {accelerator.device}: {batch_size}\n")
+        print("Batch %d from %d" % (idx, len(train_dataloader)))
+        batch_size = batch[0].size(0)  # ou o tamanho relevante do batch
+        print(f"Batch size in device {accelerator.device}: {batch_size}\n")
     
-         with accelerator.autocast():  # Mixed precision context
+        with accelerator.autocast():  # Mixed precision context
              output, loss_batch = model(*batch)
+        break
     #
     #         loss = loss_batch / accelerator.gradient_accumulation_steps  # Scale loss
     #

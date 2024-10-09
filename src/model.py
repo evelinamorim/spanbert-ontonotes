@@ -383,6 +383,12 @@ class SpanBERTCorefModel(nn.Module):
         is_training = True if self.config.SPLIT == "train" else False
 
         device = input_ids.device
+
+        # Reshape input_ids and input_mask to 2D tensors
+        batch_size, num_sentences, num_tokens = input_ids.size()
+        input_ids = input_ids.view(batch_size * num_sentences, num_tokens)
+        input_mask = input_mask.view(batch_size * num_sentences, num_tokens)
+
         transformer_outputs = self.bert(input_ids=input_ids,
                                         attention_mask=input_mask)
 
