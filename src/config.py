@@ -4,7 +4,7 @@ class Config:
     MAX_TRAIN_LEN = 128
     MAX_EVAL_LEN = 1024
     LEARNING_RATE = 1e-5
-    BATCH_SIZE = 8
+    BATCH_SIZE = 4
     EPOCHS = 3
     DATA_DIR = '../data/jsonlines_spanbert/'
     MIN_NUM_MENTIONS = 2

@@ -10,6 +10,7 @@ import torch.nn.init as init
 
 from src import utils
 
+torch.autograd.set_detect_anomaly(True)
 
 class ExtractSpans(nn.Module):
     def __init__(self, sort_spans):
@@ -174,14 +175,9 @@ class SpanBERTCorefModel(nn.Module):
         candidate_ends = candidate_ends.to(device)
 
         candidate_start_sentence_indices = flattened_sentence_indices[candidate_starts]  # [num_words, max_span_width]
+
         # Ensure candidate ends do not exceed the maximum word index (num_words - 1)
-
-        print("-->",num_words, candidate_ends.shape)
-        num_words_tensor = torch.tensor(num_words - 1).to(candidate_ends.device)
-        print("-->",candidate_ends.device, num_words_tensor.device)
-
-
-        candidate_ends_clipped = torch.min(candidate_ends, num_words_tensor)
+        candidate_ends_clipped = torch.clamp(candidate_ends, max=(num_words - 1))
         candidate_end_sentence_indices = flattened_sentence_indices[
             candidate_ends_clipped]  # [num_words, max_span_width]
 
@@ -398,6 +394,7 @@ class SpanBERTCorefModel(nn.Module):
         sequence_output = transformer_outputs.last_hidden_state
         sequence_output = self.__flatten_emb_by_sentence(sequence_output, input_mask)
         num_words = sequence_output.size(0) 
+
 
         # You can now compute span representations (gx and gy) and feed them into FFNNs
 
