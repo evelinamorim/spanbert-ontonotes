@@ -170,32 +170,31 @@ class SpanBERTCorefModel(nn.Module):
                                                                        self.max_span_length)  # [num_words, max_span_width]
         candidate_ends = candidate_starts + torch.arange(self.max_span_length).unsqueeze(
             0)  # [num_words, max_span_width]
+        # Ensure candidate ends do not exceed the maximum word index (num_words - 1)
 
         candidate_starts = candidate_starts.to(device)
         candidate_ends = candidate_ends.to(device)
+        candidate_ends_clipped = torch.clamp(candidate_ends, max=(num_words - 1))
 
         candidate_start_sentence_indices = flattened_sentence_indices[candidate_starts]  # [num_words, max_span_width]
-
-        # Ensure candidate ends do not exceed the maximum word index (num_words - 1)
-        candidate_ends_clipped = torch.clamp(candidate_ends, max=(num_words - 1))
-        candidate_end_sentence_indices = flattened_sentence_indices[
-            candidate_ends_clipped]  # [num_words, max_span_width]
+        candidate_end_sentence_indices = flattened_sentence_indices[candidate_ends_clipped]  # [num_words, max_span_width]
 
         candidate_mask = (candidate_ends < num_words) & (
                 candidate_start_sentence_indices == candidate_end_sentence_indices)  # [num_words, max_span_width]
         flattened_candidate_mask = candidate_mask.view(-1)  # [num_words * max_span_width]
 
         # Flatten the tensors
-        flattened_candidate_starts = candidate_starts.view(-1)
-        flattened_candidate_ends = candidate_ends.view(-1)
-        flattened_candidate_sentence_indices = candidate_start_sentence_indices.view(-1)
+        #flattened_candidate_starts = candidate_starts.view(-1)
+        #flattened_candidate_ends = candidate_ends.view(-1)
+        #flattened_candidate_sentence_indices = candidate_start_sentence_indices.view(-1)
 
         # Apply boolean mask to filter the flattened tensors
-        candidate_starts = flattened_candidate_starts[flattened_candidate_mask]
-        candidate_ends = flattened_candidate_ends[flattened_candidate_mask]
-        candidate_sentence_indices = flattened_candidate_sentence_indices[flattened_candidate_mask]
+        #candidate_starts = flattened_candidate_starts[flattened_candidate_mask]
+        #candidate_ends = flattened_candidate_ends[flattened_candidate_mask]
+        #candidate_sentence_indices = flattened_candidate_sentence_indices[flattened_candidate_mask]
 
-        return candidate_starts, candidate_ends, candidate_sentence_indices
+        # return candidate_starts, candidate_ends, candidate_sentence_indices
+        return candidate_starts, candidate_ends, None
 
     def __get_span_emb(self, head_emb, context_outputs, span_starts, span_ends, num_words):
         span_emb_list = []
